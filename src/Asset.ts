@@ -1,4 +1,4 @@
-import type { ImscScriptGraph } from "./ImscScriptGraph"
+import type { ImscScriptGraph } from "./Graph"
 
 export type ImscBlock = ImscBlockScript | {
     id: string,

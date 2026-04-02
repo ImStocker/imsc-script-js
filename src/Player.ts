@@ -1,6 +1,6 @@
 // ImscScriptPlayer.ts
 
-import type { ImscAsset, ImscBlock, ImscBlockScript } from "./ImscScriptAsset";
+import type { ImscAsset, ImscBlock, ImscBlockScript } from "./Asset";
 import type {
     ImscScriptGraph,
     ImscScriptGraphNode,
@@ -14,7 +14,7 @@ import type {
     ImscScriptGraphVal,
     ImscScriptGraphNodeOption,
     ImscScriptGraphVals,
-} from "./ImscScriptGraph";
+} from "./Graph";
 import { castAssetPropValueToBoolean, castAssetPropValueToFloat, castAssetPropValueToString, compareAssetPropValues, type AssetPropsPlainObjectValue } from "./Props";
 
 export type ImscScriptPlayerSpeechOption = {

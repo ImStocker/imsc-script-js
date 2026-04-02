@@ -1,20 +1,22 @@
 {
-  "name": "imscript-play",
+  "name": "imsc-script",
   "type": "module",
-  "version": "0.0.0",
-  "description": "A starter for creating a TypeScript package.",
-  "author": "Author Name <author.name@mail.com>",
+  "version": "1.0.0",
+  "description": "JS library to play dialogs/scripts created in IMS Creators",
+  "author": "ImStocker <support@cr5.space>",
   "license": "MIT",
-  "homepage": "https://github.com/author/library#readme",
+  "homepage": "https://github.com/ImStocker/imsc-script#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/author/library.git"
+    "url": "git+https://github.com/ImStocker/imsc-script.git"
   },
   "bugs": {
-    "url": "https://github.com/author/library/issues"
+    "url": "https://github.com/ImStocker/imsc-script-js/issues"
   },
   "exports": {
     ".": "./dist/index.mjs",
+    "./Graph": "./dist/Graph.mjs",
+    "./Props": "./dist/Props.mjs",
     "./package.json": "./package.json"
   },
   "files": [

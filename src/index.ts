@@ -1,3 +1,3 @@
-export function fn() {
-  return 'Hello, tsdown!'
-}
+export { ImscScriptPlayer } from "./Player"
+export type * from './Player'
+export type * from './Asset'
