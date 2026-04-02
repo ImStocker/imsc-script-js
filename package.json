@@ -14,9 +14,18 @@
     "url": "https://github.com/ImStocker/imsc-script-js/issues"
   },
   "exports": {
-    ".": "./dist/index.mjs",
-    "./Graph": "./dist/Graph.mjs",
-    "./Props": "./dist/Props.mjs",
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./Graph": {
+      "import": "./dist/Graph.mjs",
+      "require": "./dist/Graph.cjs"
+    },
+    "./Props": {
+      "import": "./dist/Props.mjs",
+      "require": "./dist/Props.cjs"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -37,5 +46,8 @@
     "tsdown": "^0.21.7",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
-  }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts"
 }
