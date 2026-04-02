@@ -1,4 +1,5 @@
 # ImscScript JS
+[![NPM Version](https://img.shields.io/npm/v/imsc-script)](https://www.npmjs.com/package/imsc-script)
 
 A JavaScript library to play dialogs and visual scripts created with [**IMS Creators**](https://ims.cr5.space/).\
 Works with any web game engine (Phaser, PixiJS, or vanilla JS) and provides full control over dialog flow, branching, variables, triggers, and serialization.
