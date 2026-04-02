@@ -18,7 +18,7 @@ Works with any web game engine (Phaser, PixiJS, or vanilla JS) and provides full
 ## Installation
 
 ```bash
-npm install imsc-script-player
+npm install imsc-script
 ```
 
 ## **Usage**
@@ -203,9 +203,7 @@ new ImscScriptPlayer(asset: ImscAsset, options?: ImscScriptPlayerOptions)
 
 You can save the exact dialog state at any time and restore it later:
 
-javascript
-
-```
+```javascript
 // Save
 const savedState = player.serialize();
 localStorage.setItem('dialogSave', JSON.stringify(savedState));
