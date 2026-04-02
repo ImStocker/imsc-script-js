@@ -40,7 +40,7 @@ export type ImscScriptPlayerEvents = {
         speech: ImscScriptPlayerSpeech,
         node: ImscScriptGraphNodeSpeech
     ) => void;
-    onChoice?: (optionIndex: number, option: ImscScriptGraphNodeOption) => void;
+    onChoice?: (optionIndex: number) => void;
     onTrigger?: (
         subject: string,
         inputs: Record<string, AssetPropsPlainObjectValue>,
@@ -162,7 +162,7 @@ export class ImscScriptPlayer {
                 return;
             }
             const chosen = speechNode.options[optionIndex];
-            this.emit('onChoice', optionIndex, chosen);
+            this.emit('onChoice', optionIndex);
             next = chosen.next
         }
 
