@@ -5,10 +5,10 @@
   "description": "JS library to play dialogs/scripts created in IMS Creators",
   "author": "ImStocker <support@cr5.space>",
   "license": "MIT",
-  "homepage": "https://github.com/ImStocker/imsc-script#readme",
+  "homepage": "https://github.com/ImStocker/imsc-script-js#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ImStocker/imsc-script.git"
+    "url": "git+https://github.com/ImStocker/imsc-script-js.git"
   },
   "bugs": {
     "url": "https://github.com/ImStocker/imsc-script-js/issues"
