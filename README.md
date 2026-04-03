@@ -1,6 +1,8 @@
 # ImscScript JS
+[![NPM Version](https://img.shields.io/npm/v/imsc-script)](https://www.npmjs.com/package/imsc-script)
 
-A JavaScript library to play dialogs and visual scripts created with [**IMS Creators**](https://ims.cr5.space/).\
+A JavaScript library to play dialogs and visual scripts created with [**IMS Creators**](https://ims.cr5.space/) ([Desktop version](https://github.com/ImStocker/ims-creators))
+
 Works with any web game engine (Phaser, PixiJS, or vanilla JS) and provides full control over dialog flow, branching, variables, triggers, and serialization.
 
 ## Features
@@ -21,11 +23,21 @@ Works with any web game engine (Phaser, PixiJS, or vanilla JS) and provides full
 npm install imsc-script
 ```
 
+or include from CDN
+
+```html
+<script src="https://cdn.jsdelivr.net/gh/ImStocker/imsc-script-js@main/dist-browser/index.iife.js"></script>
+```
+
+and use `new ImscScript.ImscScriptPlayer` to create player
+
 ## **Usage**
 
 ### **1. Create a script asset in IMS Creators**
 
-Export your dialog graph as JSON. The asset must contain at least one block of type `"script"` 
+Export your dialog graph as JSON or just use saved file from Desktop version. The asset must contain at least one block of type `"script"` 
+ 
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/ad6d752e-f23f-4874-9d0b-71584a7d71fb" />
 
 Example minimal asset:
 
@@ -120,7 +132,7 @@ const player = new ImscScriptPlayer(myDialogAsset, {
 await player.play();
 ```
 
-See browser usage in `tests/browser.html`
+See browser usage in [tests/browser.html](tests/browser.html)
 
 ### **3. Control the dialog from your UI**
 
@@ -220,6 +232,8 @@ MIT
 ## **Links**
 
 * [IMS Creators](https://ims.cr5.space/) – The visual editor for creating dialogs and scripts (both web and [desktop](https://ims.cr5.space/desktop) version)
+
+* [IMS Creators Desktop source code](https://github.com/ImStocker/ims-creators)
 
 * [GitHub Repository](https://github.com/ImStocker/imsc-script-js)
 
