@@ -22,6 +22,7 @@ export type ImscScriptPlayerSpeechOption = {
     condition?: boolean
     text?: string,
     values: Record<string, AssetPropsPlainObjectValue>,
+    nextNodeId: string | null
 }
 
 export type ImscScriptPlayerSpeech = {
@@ -282,6 +283,52 @@ export class ImscScriptPlayer {
         this._events[event] = handler ? handler : undefined;
     }
 
+    /**
+     * Walk over graph nodes. Each node will be visited only once.
+     * Can be used to check consequences of a choice without actually playing.
+     * @param callback - callback to be called for each walked node. If it returns false, stop walking. If it returns an array of strings, these nodes will be visited next.
+     * @param startNodeId - starting node id (if not provided, the start node will be used).
+     */
+    inspectGraph(callback: (node: ImscScriptGraphNode, nodeId: string) => boolean | string[] | undefined, startNodeId?: string): void {
+        let toVisit: string[] = [];
+        const visitedNodeIds = new Set<string>();
+        if (startNodeId) toVisit.push(startNodeId);
+        else if (this._graph.start) toVisit.push(this._graph.start);
+        while (toVisit.length > 0) {
+            const nodeId = toVisit.shift();
+            if (!nodeId || visitedNodeIds.has(nodeId)) {
+                continue;
+            }
+            const node = this._graph.nodes[nodeId];
+            if (!node) {
+                continue;
+            }
+            visitedNodeIds.add(nodeId)
+            const res = callback(node, nodeId);
+            if (res === false) {
+                continue;
+            }
+            else if (Array.isArray(res)) {
+                toVisit = [
+                    ...toVisit,
+                    ...res
+                ]
+            }
+            else {
+                if ('next' in node && node.next) {
+                    toVisit.push(node.next)
+                }
+                if ('options' in node && node.options) {
+                    for (const opt of node.options) {
+                        if (opt.next) {
+                            toVisit.push(opt.next)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private async enterNode(nodeId: string): Promise<void> {
         if (!this.isRunning) return;
 
@@ -365,7 +412,8 @@ export class ImscScriptPlayer {
                     index,
                     values: optVals,
                     condition: optVals.condition !== undefined && optVals.condition !== null ? castAssetPropValueToBoolean(optVals.condition) : undefined,
-                    text: optVals.text ? castAssetPropValueToString(optVals.text) : undefined
+                    text: optVals.text ? castAssetPropValueToString(optVals.text) : undefined,
+                    nextNodeId: option.next ?? null
                 } as ImscScriptPlayerSpeechOption
             }))
         }

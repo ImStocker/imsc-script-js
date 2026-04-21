@@ -193,6 +193,7 @@ new ImscScriptPlayer(asset: ImscAsset, options?: ImscScriptPlayerOptions)
 |`serialize(): ImscScriptPlayerState`|Returns the current state (current node, variables, trigger outputs).|
 |`load(state: ImscScriptPlayerState): void`|Restores a previously serialized state.|
 |`on(event, handler): void`|Registers an event handler. Can be only one handler per event|
+|`inspectGraph(callback, startNodeId?)`|Walk over script graph nodes. Allows to check consequences of a choice without actually playing.|
 
 
 ### **Events**
