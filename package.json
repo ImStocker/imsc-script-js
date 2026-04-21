@@ -1,7 +1,7 @@
 {
   "name": "imsc-script",
   "type": "module",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "JS library to play dialogs/scripts created in IMS Creators",
   "author": "ImStocker <support@cr5.space>",
   "license": "MIT",

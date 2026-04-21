@@ -100,10 +100,16 @@ export class ImscScriptPlayer {
         }
     }
 
+    /**
+     * Is dialog running
+     */
     get isRunning() {
         return !!this._playResolve;
     }
 
+    /**
+     * Is dialog paused during running
+     */
     get isPaused() {
         return this.isRunning && this._pause;
     }
@@ -220,20 +226,31 @@ export class ImscScriptPlayer {
         return this._variables[key] ?? null;
     }
 
+    /**
+     * Get current node
+     */
     get currentNode(): ImscScriptGraphNode | null {
         if (!this._currentNodeId) return null;
         return this._graph.nodes[this._currentNodeId] || null;
     }
 
+    /**
+     * Get current node id
+     */
     get currentNodeId() {
         return this._currentNodeId;
     }
 
-
+    /**
+     * Get current state of variables
+     */
     get variables(): Readonly<Record<string, AssetPropsPlainObjectValue>> {
         return { ...this._variables };
     }
 
+    /**
+     * Searilize current state of dialog run
+     */
     serialize(): ImscScriptPlayerState {
         return {
             currentNodeId: this._currentNodeId,
@@ -242,6 +259,9 @@ export class ImscScriptPlayer {
         };
     }
 
+    /**
+     * Load previously saved state of dialog run
+     */
     load(state: ImscScriptPlayerState): void {
         if (state.currentNodeId && !this._graph.nodes[state.currentNodeId]) {
             this.emitError(new Error(`Cannot restore: node "${state.currentNodeId}" not found`));
@@ -253,8 +273,13 @@ export class ImscScriptPlayer {
         this.emitStateChange();
     }
 
-    on<K extends keyof ImscScriptPlayerEvents>(event: K, handler: ImscScriptPlayerEvents[K]): void {
-        (this._events as any)[event] = handler;
+    /**
+     * Subscribe to event
+     * Only one handler can be assigned to event
+     * Set null to unsubscribe
+     */
+    on<K extends keyof ImscScriptPlayerEvents>(event: K, handler: ImscScriptPlayerEvents[K] | null): void {
+        this._events[event] = handler ? handler : undefined;
     }
 
     private async enterNode(nodeId: string): Promise<void> {
