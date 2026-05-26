@@ -13,8 +13,9 @@ import type {
     ImscScriptGraphVal,
     ImscScriptGraphVals,
     ImscScriptGraphNodeFunction,
+    ImscScriptGraphNodeCallScript,
 } from "./Graph";
-import { castAssetPropValueToBoolean, castAssetPropValueToFloat, castAssetPropValueToString, compareAssetPropValues, type AssetPropsPlainObject, type AssetPropsPlainObjectValue } from "./Props";
+import { castAssetPropValueToAsset, castAssetPropValueToBoolean, castAssetPropValueToFloat, castAssetPropValueToString, compareAssetPropValues, type AssetPropsPlainObject, type AssetPropsPlainObjectValue } from "./Props";
 
 export type ImscScriptPlayerSpeechOption = {
     index: number
@@ -85,7 +86,8 @@ export type ImscScriptPlayerEvents = {
     onVariableChange?: (event: {
         variable: string,
         newValue: AssetPropsPlainObjectValue,
-        oldValue: AssetPropsPlainObjectValue
+        oldValue: AssetPropsPlainObjectValue,
+        frameIndex: number
     }) => void;
     // Error occured
     onError?: (event: {
@@ -95,28 +97,37 @@ export type ImscScriptPlayerEvents = {
     onStateChange?: (event: {
         state: ImscScriptPlayerState
     }) => void;
+    // Load script passed to callScript subject
+    onLoadScript?: (event: {
+        scriptId: string
+    }) => ImscScriptGraph | Promise<ImscScriptGraph>
 }
 
 export type ImscScriptPlayerState = {
-    currentNodeId: string | null;
-    currentInputs: AssetPropsPlainObject;
-    variables: Record<string, any>;
-    triggerOutputs: Record<string, Record<string, any>>; // nodeId -> outputs
+    frames: ImscScriptPlayerFrame[]
+    globals: AssetPropsPlainObject;
 }
 
 export type ImscScriptPlayerOptions = {
     initialVariables?: AssetPropsPlainObject;
     events?: ImscScriptPlayerEvents;
+    scriptId?: string
 };
 
 
+export type ImscScriptPlayerFrame = {
+    scriptId: string | null
+    graph: ImscScriptGraph
+    currentNodeId: string | null
+    currentNodeInputs: AssetPropsPlainObject
+    variables: AssetPropsPlainObject
+    nodeOutputs: Record<string, AssetPropsPlainObject>;
+}
+
 export class ImscScriptPlayer {
-    private _graph: ImscScriptGraph;
-    private _currentNodeId: string | null = null;
-    private _currentNodeInputs: AssetPropsPlainObject = {};
-    private _variables: AssetPropsPlainObject = {};
-    private _triggerOutputs: Record<string, AssetPropsPlainObject> = {};
     private _events: ImscScriptPlayerEvents = {};
+    private _frames: ImscScriptPlayerFrame[] = [];
+    private _globalVariables: AssetPropsPlainObject = {};
     private _playResolve: (() => void) | null = null;
     private _playEpoch = 0;
     private _pause: boolean = false
@@ -124,16 +135,45 @@ export class ImscScriptPlayer {
     constructor(graph: ImscScriptGraph, options?: ImscScriptPlayerOptions) {
         this._events = options?.events ?? {};
 
-        this._graph = graph;
-        this._variables = {
-            ...(this._graph.variables?.own ?
-                Object.fromEntries(
-                    Object.entries(this._graph.variables.own).map(([varname, vardef]) => {
-                        return [varname, vardef.default ?? null]
-                    })
-                ) : {}),
-            ...(options?.initialVariables ?? {})
-        };
+        this._newFrame(
+            options?.scriptId ?? null,
+            graph,
+            options?.initialVariables ?? {}
+        )
+    }
+
+    get currentFrame() {
+        return this._frames[0]!;
+    }
+
+    private _newFrame(scriptId: string | null, graph: ImscScriptGraph, initialVariables: AssetPropsPlainObject) {
+        const frame: ImscScriptPlayerFrame = {
+            currentNodeId: null,
+            currentNodeInputs: {},
+            scriptId,
+            nodeOutputs: {},
+            variables: {},
+            graph: graph
+        }
+        for (const [varname, vardef] of Object.entries(graph.variables?.own ?? {})) {
+            if (!vardef.kind || vardef.kind === 'global') {
+                if (initialVariables.hasOwnProperty(varname)) {
+                    this._globalVariables[varname] = initialVariables[varname]
+                }
+                else if (!this._globalVariables.hasOwnProperty(varname)) {
+                    this._globalVariables[varname] = vardef.default !== undefined ? vardef.default : null
+                }
+            }
+            else {
+                if (initialVariables.hasOwnProperty(varname)) {
+                    frame.variables[varname] = initialVariables[varname]
+                }
+                else if (vardef.default !== undefined) {
+                    frame.variables[varname] = vardef.default !== undefined ? vardef.default : null
+                }
+            }
+        }
+        this._frames.unshift(frame);
     }
 
     /**
@@ -150,6 +190,10 @@ export class ImscScriptPlayer {
         return this.isRunning && this._pause;
     }
 
+    get frames() {
+        return this._frames;
+    }
+
     /**
      * Starts the dialog from the given node, or from the graph's start node if none provided.
      * If the player is already running, it ends the current dialog first.
@@ -160,8 +204,8 @@ export class ImscScriptPlayer {
 
         const playEpoch = ++this._playEpoch
         this._pause = false;
-        let nodeId = startNodeId ?? this._graph.start;
-        if (!nodeId || !this._graph.nodes[nodeId]) {
+        let nodeId = startNodeId ?? this.currentFrame.graph.start;
+        if (!nodeId || !this.currentFrame.graph.nodes[nodeId]) {
             this.raiseError(
                 new Error(`Start node "${nodeId}" not found in graph`)
             )
@@ -196,8 +240,8 @@ export class ImscScriptPlayer {
      * @param optionIndex selected choice if there are options
      */
     continue(optionIndex?: number): void {
-        if (!this.isRunning || !this._currentNodeId) return;
-        const node = this._graph.nodes[this._currentNodeId];
+        if (!this.isRunning || !this.currentFrame.currentNodeId) return;
+        const node = this.currentFrame.graph.nodes[this.currentFrame.currentNodeId];
 
         if (node.type === 'speech') {
             let next: string | null = null;
@@ -218,7 +262,7 @@ export class ImscScriptPlayer {
                 this.emit('onChoice', {
                     optionIndex,
                     node: node,
-                    nodeId: this._currentNodeId
+                    nodeId: this.currentFrame.currentNodeId
                 });
                 next = chosen.next
             }
@@ -237,15 +281,41 @@ export class ImscScriptPlayer {
     goto(nodeId: string | null): void {
         if (!this.isRunning) return;
         if (nodeId === null) {
-            this.end();
+            this.endFrame();
             return;
         }
-        if (!this._graph.nodes[nodeId]) {
+        if (!this.currentFrame.graph.nodes[nodeId]) {
             this.raiseError(new Error(`Node "${nodeId}" not found`));
             return;
         }
 
         this.enterNode(nodeId, ++this._playEpoch);  // Don't await
+    }
+
+    private endFrame() {
+        if (this._frames.length > 1) {
+            const left_frame = this._frames.shift();
+            const node = this.currentFrame.currentNodeId ?
+                (this.currentFrame.graph.nodes[this.currentFrame.currentNodeId] as ImscScriptGraphNodeCallScript) :
+                null;
+            if (!node || !node.next) {
+                this.end();
+                return;
+            }
+            if (this.currentFrame.currentNodeId) {
+                const outputs: AssetPropsPlainObject = {}
+                for (const [varname, vardef] of Object.entries(left_frame?.graph?.variables?.own ?? {})) {
+                    if (vardef.kind === 'out' || vardef.kind === 'in-out') {
+                        outputs[varname] = left_frame?.variables[varname] ?? null
+                    }
+                }
+                this.currentFrame.nodeOutputs[this.currentFrame.currentNodeId] = outputs
+            }
+            this.goto(node.next)
+        }
+        else {
+            this.end();
+        }
     }
 
     /**
@@ -263,45 +333,77 @@ export class ImscScriptPlayer {
      * @param key variable name to set
      * @param value value to set
      */
-    setVariable(key: string, value: any): void {
-        const old = this._variables[key] ?? null;
-        this._variables[key] = value;
+    setVariable(key: string, value: AssetPropsPlainObjectValue, frameIndex = 0): void {
+        const frame = this._frames[frameIndex];
+        if (!frame) return;
+
+        const old = frame.variables[key] ?? null;
+
+        const vardef = frame.graph.variables?.own?.[key];
+        if (vardef && (!vardef.kind || vardef.kind === 'global')) {
+            this._globalVariables[key] = value;
+        }
+        else {
+            frame.variables[key] = value;
+        }
+
         this.emit('onVariableChange', {
             variable: key,
             newValue: value,
-            oldValue: old
+            oldValue: old,
+            frameIndex
         });
         this.emitStateChange();
     }
 
     /**
      * Get current value of variable
-     * @param key variable name to get\
+     * @param key variable name to get
      */
-    getVariable(key: string): any {
-        return this._variables[key] ?? null;
+    getVariable(key: string, frameIndex = 0): AssetPropsPlainObjectValue {
+        const frame = this._frames[frameIndex];
+        if (!frame) return null;
+
+
+        if (frame.variables.hasOwnProperty(key)) {
+            return frame.variables[key]
+        }
+
+        const vardef = frame.graph.variables?.own?.[key];
+        if (!vardef || !vardef.kind || vardef.kind === 'global') {
+            return this._globalVariables[key] ?? null;
+        }
+
+        return null;
     }
 
     /**
      * Get current node
      */
     get currentNode(): ImscScriptGraphNode | null {
-        if (!this._currentNodeId) return null;
-        return this._graph.nodes[this._currentNodeId] || null;
+        if (!this.currentFrame.currentNodeId) return null;
+        return this.currentFrame.graph.nodes[this.currentFrame.currentNodeId] || null;
     }
 
     /**
      * Get current node id
      */
     get currentNodeId() {
-        return this._currentNodeId;
+        return this.currentFrame.currentNodeId;
     }
 
     /**
      * Get current state of variables
      */
     get variables(): Readonly<AssetPropsPlainObject> {
-        return { ...this._variables };
+        return { ...this.currentFrame.variables };
+    }
+
+    /**
+     * Get current state of variables
+     */
+    get globals(): Readonly<AssetPropsPlainObject> {
+        return { ...this._globalVariables };
     }
 
     /**
@@ -309,10 +411,8 @@ export class ImscScriptPlayer {
      */
     serialize(): ImscScriptPlayerState {
         return {
-            currentNodeId: this._currentNodeId,
-            currentInputs: this._currentNodeInputs,
-            variables: { ...this._variables },
-            triggerOutputs: { ...this._triggerOutputs },
+            frames: this._frames,
+            globals: this._globalVariables
         };
     }
 
@@ -320,15 +420,22 @@ export class ImscScriptPlayer {
      * Load previously saved state of dialog run. Pause execution if dialog is running
      */
     load(state: ImscScriptPlayerState): void {
-        if (state.currentNodeId && !this._graph.nodes[state.currentNodeId]) {
-            this.raiseError(new Error(`Cannot restore: node "${state.currentNodeId}" not found`));
-            return;
+        if (state.frames.length === 0) {
+            throw new Error(`No frames`)
+        }
+        if (state.frames[0].currentNodeId && !state.frames[0].graph.nodes[state.frames[0].currentNodeId]) {
+            throw new Error(`Cannot restore: node "${state.frames[0].currentNodeId}" not found`)
         }
         this.pause();
-        this._currentNodeId = state.currentNodeId;
-        this._currentNodeInputs = state.currentInputs;
-        this._variables = { ...state.variables };
-        this._triggerOutputs = { ...state.triggerOutputs };
+        this._frames = state.frames.map(f => ({
+            currentNodeId: f.currentNodeId,
+            currentNodeInputs: f.currentNodeInputs,
+            graph: f.graph,
+            scriptId: f.scriptId,
+            nodeOutputs: { ...f.nodeOutputs },
+            variables: { ...f.variables }
+        }))
+        this._globalVariables = { ...state.globals };
         this.emitStateChange();
     }
 
@@ -351,13 +458,13 @@ export class ImscScriptPlayer {
         let toVisit: string[] = [];
         const visitedNodeIds = new Set<string>();
         if (startNodeId) toVisit.push(startNodeId);
-        else if (this._graph.start) toVisit.push(this._graph.start);
+        else if (this.currentFrame.graph.start) toVisit.push(this.currentFrame.graph.start);
         while (toVisit.length > 0) {
             const nodeId = toVisit.shift();
             if (!nodeId || visitedNodeIds.has(nodeId)) {
                 continue;
             }
-            const node = this._graph.nodes[nodeId];
+            const node = this.currentFrame.graph.nodes[nodeId];
             if (!node) {
                 continue;
             }
@@ -388,9 +495,9 @@ export class ImscScriptPlayer {
     }
 
     private async processCurrentNode(playEpoch: number) {
-        const nodeId = this._currentNodeId;
+        const nodeId = this.currentFrame.currentNodeId;
         if (!nodeId) return;
-        const node = nodeId ? this._graph.nodes[nodeId] : null;
+        const node = nodeId ? this.currentFrame.graph.nodes[nodeId] : null;
         if (!node) return;
 
         try {
@@ -401,30 +508,37 @@ export class ImscScriptPlayer {
                     break;
 
                 case 'speech':
-                    await this.handleSpeechNode(nodeId, node, this._currentNodeInputs);
+                    await this.handleSpeechNode(nodeId, node, this.currentFrame.currentNodeInputs);
                     break;
 
                 case 'branch': {
-                    const next = this.handleBranchNode(nodeId, node, this._currentNodeInputs);
+                    const next = this.handleBranchNode(nodeId, node, this.currentFrame.currentNodeInputs);
                     this.goto(next);
                     break;
                 }
 
                 case 'setVar':
-                    this.handleSetVarNode(nodeId, node, this._currentNodeInputs);
+                    this.handleSetVarNode(nodeId, node, this.currentFrame.currentNodeInputs);
                     this.goto(node.next);
                     break;
 
                 case 'trigger': {
-                    const next = await this.handleTriggerNode(nodeId, node, this._currentNodeInputs);
+                    const next = await this.handleTriggerNode(nodeId, node, this.currentFrame.currentNodeInputs);
                     if (playEpoch !== this._playEpoch) return; // Stop aborted execution
                     this.goto(next)
                     break;
                 }
 
                 case 'end':
-                    this.end();
+                    this.endFrame();
                     break;
+
+                case 'callScript': {
+                    const next = await this.handleCallScriptNode(nodeId, node, this.currentFrame.currentNodeInputs)
+                    if (playEpoch !== this._playEpoch) return; // Stop aborted execution
+                    this.goto(next)
+                    break;
+                }
 
                 default:
                     // Expression nodes should not be visited as flow nodes
@@ -442,7 +556,7 @@ export class ImscScriptPlayer {
 
         this.exitCurrentNode();
 
-        const node = nodeId ? this._graph.nodes[nodeId] : null;
+        const node = nodeId ? this.currentFrame.graph.nodes[nodeId] : null;
         if (!node) {
             this.end();
             return;
@@ -461,13 +575,13 @@ export class ImscScriptPlayer {
             node,
             nodeId
         })) ?? inputs;
-        if (this._currentNodeId !== null) {
+        if (this.currentFrame.currentNodeId !== null) {
             // goto called during handler. Stop process this node
             return;
         }
         if (playEpoch !== this._playEpoch) return; // Stop aborted execution
-        this._currentNodeInputs = preprocessedInputs;
-        this._currentNodeId = nodeId;
+        this.currentFrame.currentNodeInputs = preprocessedInputs;
+        this.currentFrame.currentNodeId = nodeId;
         this.emitStateChange();
         if (this.isPaused) {
             return;
@@ -477,14 +591,14 @@ export class ImscScriptPlayer {
     }
 
     private exitCurrentNode(): void {
-        if (!this._currentNodeId) return;
-        const node = this._graph.nodes[this._currentNodeId];
+        if (!this.currentFrame.currentNodeId) return;
+        const node = this.currentFrame.graph.nodes[this.currentFrame.currentNodeId];
         this.emit('onNodeExit', {
-            nodeId: this._currentNodeId,
+            nodeId: this.currentFrame.currentNodeId,
             node
         });
-        this._currentNodeId = null;
-        this._currentNodeInputs = {}
+        this.currentFrame.currentNodeId = null;
+        this.currentFrame.currentNodeInputs = {}
     }
 
     private async handleSpeechNode(nodeId: string, node: ImscScriptGraphNodeSpeech, inputs: AssetPropsPlainObject): Promise<void> {
@@ -535,7 +649,7 @@ export class ImscScriptPlayer {
             node,
             nodeId
         });
-        this._triggerOutputs[nodeId] = result?.outputs ?? {};
+        this.currentFrame.nodeOutputs[nodeId] = result?.outputs ?? {};
         return result?.next !== null ? (result?.next ?? node.next) : null;
     }
 
@@ -549,6 +663,29 @@ export class ImscScriptPlayer {
             nodeId
         });
         return result?.outputs ?? {};
+    }
+
+    private async handleCallScriptNode(nodeId: string, node: ImscScriptGraphNodeCallScript, inputs: AssetPropsPlainObject): Promise<string | null> {
+        let scriptId = typeof node.subject === 'string' ? node.subject : (castAssetPropValueToAsset(node.subject)?.AssetId ?? null)
+        if (!scriptId) {
+            throw new Error('Subject of subscript call is not defined')
+        }
+        const script = await this.emitAsync('onLoadScript', {
+            scriptId
+        })
+        if (!script) {
+            throw new Error('Subscript is not found')
+        }
+        const initial: AssetPropsPlainObject = {};
+        for (const [varname, vardef] of Object.entries(script.variables?.own ?? {})) {
+            if (vardef.kind === 'in' || vardef.kind === 'in-out') {
+                if (inputs.hasOwnProperty(varname)) {
+                    initial[varname] = inputs[varname]
+                }
+            }
+        }
+        this._newFrame(scriptId, script, initial);
+        return script.start;
     }
 
 
@@ -582,7 +719,7 @@ export class ImscScriptPlayer {
     }
 
     private async evaluateNode(nodeId: string, visited_pins?: Set<string>): Promise<AssetPropsPlainObject> {
-        const node = this._graph.nodes[nodeId];
+        const node = this.currentFrame.graph.nodes[nodeId];
         if (!node) {
             throw new Error(`Node ${nodeId} not found`);
         }
@@ -598,7 +735,7 @@ export class ImscScriptPlayer {
 
             case 'getVar': {
                 const varName = await this.evaluateValue((node as ImscScriptGraphNodeGetVar).values.variable);
-                return { result: this._variables[castAssetPropValueToString(varName)] };
+                return { result: this.getVariable(castAssetPropValueToString(varName)) };
             }
 
             case 'opAnd':
@@ -666,9 +803,10 @@ export class ImscScriptPlayer {
                 return { result: !a };
             }
 
+            case 'callScript':
             case 'trigger':
                 // Return stored outputs for this trigger node (may be empty if not yet executed)
-                return this._triggerOutputs[nodeId] ?? {};
+                return this.currentFrame.nodeOutputs[nodeId] ?? {};
 
             case 'function': {
                 const inputs = await this.evaluateVals(node.values)

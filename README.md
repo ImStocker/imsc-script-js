@@ -15,6 +15,7 @@ Works with any web game engine (Phaser, PixiJS, or vanilla JS) and provides full
 - 🔌 **Framework agnostic** – works with Phaser, PixiJS, or any rendering engine
 - 📝 **Expression evaluation** – math, comparison, and logical operators
 - 🧩 **Async support** – triggers can be asynchronous
+- 📜 **Sub‑scripts** – `callScript` nodes run nested graphs with isolated variables and `in`/`out` data flow
 - ⏸️ **Pause/Resume** – pause execution during triggers or user input
 
 ## Installation
@@ -164,7 +165,9 @@ new ImscScriptPlayer(graph: ImscScriptGraph, options?: ImscScriptPlayerOptions)
 |`isPaused`|`boolean`|true if the dialog is paused.|
 |`currentNode`|`ImscScriptGraphNode` | null|The currently active node.|
 |`currentNodeId`|`string` | null|ID of the currently active node.|
-|`variables`|`Readonly<AssetPropsPlainObject>`|Current variable values (read‑only).|
+|`variables`|`Readonly<AssetPropsPlainObject>`|Current frame's variable values (read‑only).|
+|`globals`|`Readonly<AssetPropsPlainObject>`|Global variable values shared across all frames (read‑only).|
+|`frames`|`ImscScriptPlayerFrame[]`|Frame stack (current frame is index 0).|
 
 
 ### **Methods**
@@ -179,7 +182,7 @@ new ImscScriptPlayer(graph: ImscScriptGraph, options?: ImscScriptPlayerOptions)
 |`end(): void`|Ends the current dialog (resolves the play() promise).|
 |`setVariable(key: string, value: any): void`|Sets a runtime variable.|
 |`getVariable(key: string): any`|Gets a runtime variable.|
-|`serialize(): ImscScriptPlayerState`|Returns the current state (current node, current inputs, variables, trigger outputs).|
+|`serialize(): ImscScriptPlayerState`|Returns the current state (frame stack, globals).|
 |`load(state: ImscScriptPlayerState): void`|Restores a previously serialized state.|
 |`on(event, handler): void`|Registers an event handler. Can be only one handler per event|
 |`inspectGraph(callback, startNodeId?)`|Walk over script graph nodes. Allows to check consequences of a choice without actually playing.|
@@ -199,7 +202,8 @@ All event handlers receive a single event object with named properties.
 |`onSpeech`|`{ speech, node, nodeId }`|A speech node is active. `speech` contains character, text, values, and options array (each with index, condition, text, values).|
 |`onChoice`|`{ optionIndex, node, nodeId }`|User selected a choice (fired before moving to the next node).|
 |`onAction`|`{ type, subject, inputs, node, nodeId }` → `{ outputs?, next? }` (optional)|A trigger or function node is active. `type` is `'trigger'` or `'function'`. Return `outputs` for downstream bindings and optionally `next` to override the target node.|
-|`onVariableChange`|`{ variable, newValue, oldValue }`|A variable changed.|
+|`onLoadScript`|`{ scriptId }` → `ImscScriptGraph`|Load a sub‑script by ID when a `callScript` node is activated.|
+|`onVariableChange`|`{ variable, newValue, oldValue, frameIndex }`|A variable changed in a frame.|
 |`onError`|`{ error }`|An error occurred.|
 |`onStateChange`|`{ state }`|State changed (useful for auto‑saving).|
 

@@ -1,6 +1,6 @@
-import type { AssetPropsPlainObjectValue } from "./Props"
+import type { AssetPropsPlainObjectValue, AssetPropValueAsset } from "./Props"
 
-export type ImscScriptGraphVarDef = {
+export type ImscScriptGraphParamDef = {
     name: string,
     type: { Type: string },
     title: string,
@@ -10,10 +10,14 @@ export type ImscScriptGraphVarDef = {
     autoFill?: boolean | null;
 }
 
+export type ImscScriptGraphVarDef = ImscScriptGraphParamDef & {
+    kind?: 'global' | 'local' | 'in' | 'out' | 'in-out' // 'global' if not specified 
+}
+
 export type ImscScriptGraphSettings = {
     speech?: {
-        main?: { [prop: string]: ImscScriptGraphVarDef },
-        option?: { [prop: string]: ImscScriptGraphVarDef }
+        main?: { [prop: string]: ImscScriptGraphParamDef },
+        option?: { [prop: string]: ImscScriptGraphParamDef }
     }
 }
 
@@ -121,6 +125,13 @@ export type ImscScriptGraphNodeBranch = ImscScriptGraphNodeBase & {
 }
 
 
+export type ImscScriptGraphNodeCallScript = ImscScriptGraphNodeBase & {
+    type: 'callScript',
+    next: string | null,
+    subject: AssetPropValueAsset | string,
+    values?: ImscScriptGraphVals,
+}
+
 export type ImscScriptGraphNode =
     | ImscScriptGraphNodeTrigger
     | ImscScriptGraphNodeFunction
@@ -133,6 +144,7 @@ export type ImscScriptGraphNode =
     | ImscScriptGraphNodeGetVar
     | ImscScriptGraphNodeSetVar
     | ImscScriptGraphNodeBranch
+    | ImscScriptGraphNodeCallScript
 
 export type ImscScriptGraph = {
     start: string | null,

@@ -29,6 +29,12 @@ New features:
 - **`ImscScriptGraphNodeFunction`** - new node type for side-effect-only expressions (evaluated during value resolution, calls `onAction` with `type: 'function'`)
 - **`getVar` now evaluates variable name** as a value expression (supports dynamic variable names)
 - **Trigger `onAction` can override next node** by returning `{ next: 'nodeId' }`
+- **`callScript` node** – runs a sub‑graph loaded via `onLoadScript`; supports `in`/`out`/`in-out`/`local`/`global` variable kind scoping across frames
+- **Frame‑stack architecture** – `ImscScriptPlayerFrame` with isolated `variables` and `nodeOutputs` per frame; `end` node pops the current frame and returns control to the caller
+- **Variable kinds** – `global` (shared, default), `local` (frame‑isolated), `in` (passed into sub‑script), `out` (returned from sub‑script), `in-out` (passed and returned)
+- **`onLoadScript` event** – called with `{ scriptId }` to resolve sub‑graphs at runtime
+- **`globals` / `frames` properties** – expose the full frame stack and shared globals
+- **`frameIndex`** added to `onVariableChange` event
 
 # v1.1.0
 
