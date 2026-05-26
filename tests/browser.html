@@ -9,96 +9,82 @@
 <body>
 
     <script>
-        const player = new ImscScript.ImscScriptPlayer({
-            "id": "my_dialog",
-            "blocks": [
-                {
-                    "id": "block1",
-                    "type": "script",
-                    "name": "content",
-                    "computed": {
-                        "start": "greeting",
-                        "nodes": {
-                            "greeting": {
-                                "type": "speech",
-                                "values": {
-                                    "character": "Guard",
-                                    "text": "Hello!"
-                                },
-                                "next": "ask"
-                            },
-                            "ask": {
-                                "type": "speech",
-                                "values": {
-                                    "character": "Guard",
-                                    "text": "What do you want?"
-                                },
-                                "options": [
-                                    { "values": { "text": "I seek adventure." }, "next": "adventure" },
-                                    { "values": { "text": "I want to trade." }, "next": "trade" },
-                                    { "values": { "text": "Nothing, goodbye." }, "next": "end" }
-                                ]
-                            },
-                            "trade": {
-                                "type": "trigger",
-                                "subject": "trade",
-                                "next": "ask"
-                            },
-                            "adventure": {
-                                "type": "speech",
-                                "values": {
-                                    "character": "Guard",
-                                    "text": "Then go east, brave soul!"
-                                },
-                                "next": "end"
-                            },
-                            "end": { "id": "end", "type": "end" }
-                        }
-                    }
-                }
-            ]
-        }, {
-            blockName: 'content',  // optional, uses first script block if omitted
+        const graph = {
+            "start": "greeting",
+            "nodes": {
+                "greeting": {
+                    "type": "speech",
+                    "values": {
+                        "character": "Guard",
+                        "text": "Hello!"
+                    },
+                    "next": "ask"
+                },
+                "ask": {
+                    "type": "speech",
+                    "values": {
+                        "character": "Guard",
+                        "text": "What do you want?"
+                    },
+                    "options": [
+                        { "values": { "text": "I seek adventure." }, "next": "adventure" },
+                        { "values": { "text": "I want to trade." }, "next": "trade" },
+                        { "values": { "text": "Nothing, goodbye." }, "next": "end" }
+                    ]
+                },
+                "trade": {
+                    "type": "trigger",
+                    "subject": "trade",
+                    "next": "ask"
+                },
+                "adventure": {
+                    "type": "speech",
+                    "values": {
+                        "character": "Guard",
+                        "text": "Then go east, brave soul!"
+                    },
+                    "next": "end"
+                },
+                "end": { "id": "end", "type": "end" }
+            }
+        }
+
+        const player = new ImscScript.ImscScriptPlayer(graph, {
             events: {
-                onSpeech: (content) => {
-                    console.log("Speech bubble", content)
-                    if (content.options.length > 0) {
-                        // Ask user to choose one of option
+                onSpeech: ({ speech }) => {
+                    console.log("Speech bubble", speech)
+                    if (speech.options.length > 0) {
                         let choice = -1
-                        while (choice < 0 || choice >= content.options.length || isNaN(choice)) {
+                        while (choice < 0 || choice >= speech.options.length || isNaN(choice)) {
                             choice = parseInt(
                                 prompt([
-                                    `${content.character}:`,
-                                    content.text,
+                                    `${speech.character}:`,
+                                    speech.text,
                                     '',
-                                    ...content.options.map((opt, index) => {
+                                    ...speech.options.map((opt, index) => {
                                         return `${index + 1}. ${opt.text}`
                                     }),
                                 ].join("\n"))
                             ) - 1
                         }
                         player.continue(choice)
-
                     }
                     else {
                         alert([
-                            `${content.character}:`,
-                            content.text
+                            `${speech.character}:`,
+                            speech.text
                         ].join("\n"))
-                        // No options just continue
                         player.continue()
                     }
                 },
-                onChoice: (optionIndex, option) => {
+                onChoice: ({ optionIndex }) => {
                     console.log(`Player chosen option ${optionIndex}`);
                 },
-                onTrigger: async (subject, inputs, node) => {
+                onTrigger: async ({ subject, inputs }) => {
                     console.log(`Trigger: ${subject}`, inputs);
-                    // Handle game logic
                     if (subject === 'trade') {
                         alert('Here is trading screen...')
                     }
-                    // Return outputs that can be bound later
                     return { success: true };
                 },
                 onEnd: () => {
@@ -107,7 +93,6 @@
             }
         });
 
-        // Start the dialog
         player.play();
     </script>
 </body>

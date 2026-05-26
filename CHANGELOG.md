@@ -8,6 +8,8 @@ Breaking changes:
 - `continue()` behavior changed: no longer unpauses; use new `resume()` method to unpause without advancing
 - Input values are pre-calculated and passed through node handlers (branch, setVar, trigger, speech)
 - Type `AssetPropsPlainObject` replaces `Record<string, AssetPropsPlainObjectValue>`
+- **`ImscScriptPlayer` constructor now takes `ImscScriptGraph` directly** instead of `ImscAsset` – removed `Asset.ts`, `blockName`, `ImscAsset`, `ImscBlock`, `ImscBlockScript` types
+- `index.ts` no longer exports from `./Asset`
 
 New features:
 - `onNodeBeforeEnter` event – called before node inputs are evaluated
@@ -16,6 +18,7 @@ New features:
 - `continue()` can make one step forward while paused
 - `onChoice`, `onTrigger`, `onNodeExit`, `onVariableChange`, `onError`, `onStateChange`, `onSpeech` events now include `nodeId` and extra context
 - Pause on error instead of ending
+- Fixed `enterNode` guard condition to correctly detect `goto()` calls during async handlers
 
 # v1.1.0
 

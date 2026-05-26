@@ -37,8 +37,8 @@ export type ImscScriptGraphNodeOption = {
 }
 
 export type ImscScriptGraphNodeBase = {
-    index: number,
-    pos: { x: number, y: number },
+    index?: number,
+    pos?: { x: number, y: number },
 }
 
 export type ImscScriptGraphNodeTrigger = ImscScriptGraphNodeBase & {
@@ -56,7 +56,6 @@ export type ImscScriptGraphNodeSpeech = ImscScriptGraphNodeBase & {
     next: string | null,
     type: 'speech',
     values?: ImscScriptGraphVals,
-    subject: string,
     options?: ImscScriptGraphNodeOption[]
 }
 

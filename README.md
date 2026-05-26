@@ -33,63 +33,53 @@ and use `new ImscScript.ImscScriptPlayer` to create player
 
 ## **Usage**
 
-### **1. Create a script asset in IMS Creators**
+### **1. Create a script graph in IMS Creators**
 
-Export your dialog graph as JSON or just use saved file from Desktop version. The asset must contain at least one block of type `"script"` 
+Export your dialog graph as JSON or just use saved file from Desktop version. Use the `computed` content of a script block as the graph input.
  
 <img width="800" alt="image" src="https://github.com/user-attachments/assets/ad6d752e-f23f-4874-9d0b-71584a7d71fb" />
 
-Example minimal asset:
+Example minimal graph:
 
 ```json
 {
-  "id": "my_dialog",
-  "blocks": [
-    {
-      "id": "block1",
-      "type": "script",
-      "name": "content",
-      "computed": {
-        "start": "greeting",
-        "nodes": {
-          "greeting": {
-            "type": "speech",
-            "values": {
-              "character": "Guard",
-              "text": "Hello!"
-            },
-            "next": "ask"
-          },
-          "ask": {
-            "type": "speech",
-            "values": {
-              "character": "Guard",
-              "text": "What do you want?"
-            },
-            "options": [
-              { "values": { "text": "I seek adventure." }, "next": "adventure" },
-              { "values": { "text": "I want to trade." }, "next": "trade" },
-              { "values": { "text": "Nothing, goodbye." }, "next": "end" }
-            ]
-          },
-          "trade": {
-            "type": "trigger",
-            "subject": "trade",
-            "next": "ask"
-          },
-          "adventure": {
-            "type": "speech",
-            "values": {
-              "character": "Guard",
-              "text": "Then go east, brave soul!"
-            },
-            "next": "end"
-          },
-          "end": { "id": "end", "type": "end" }
-        }
-      }
-    }
-  ]
+  "start": "greeting",
+  "nodes": {
+    "greeting": {
+      "type": "speech",
+      "values": {
+        "character": "Guard",
+        "text": "Hello!"
+      },
+      "next": "ask"
+    },
+    "ask": {
+      "type": "speech",
+      "values": {
+        "character": "Guard",
+        "text": "What do you want?"
+      },
+      "options": [
+        { "values": { "text": "I seek adventure." }, "next": "adventure" },
+        { "values": { "text": "I want to trade." }, "next": "trade" },
+        { "values": { "text": "Nothing, goodbye." }, "next": "end" }
+      ]
+    },
+    "trade": {
+      "type": "trigger",
+      "subject": "trade",
+      "next": "ask"
+    },
+    "adventure": {
+      "type": "speech",
+      "values": {
+        "character": "Guard",
+        "text": "Then go east, brave soul!"
+      },
+      "next": "end"
+    },
+    "end": { "id": "end", "type": "end" }
+  }
 }
 ```
 
@@ -97,10 +87,9 @@ Example minimal asset:
 
 ```javascript
 import { ImscScriptPlayer } from 'imsc-script';
-import myDialogAsset from './myDialog.json';
+import myDialogGraph from './myDialog.json';
 
-const player = new ImscScriptPlayer(myDialogAsset, {
-  blockName: 'content',                // optional, uses first script block if omitted
+const player = new ImscScriptPlayer(myDialogGraph, {
   initialVariables: { customVar: 42 }, // overrides defaults values of variables
   events: {
     onSpeech: ({ speech, node, nodeId }) => {
@@ -160,12 +149,11 @@ player.resume();
 ### **Constructor**
 
 ```typescript
-new ImscScriptPlayer(asset: ImscAsset, options?: ImscScriptPlayerOptions)
+new ImscScriptPlayer(graph: ImscScriptGraph, options?: ImscScriptPlayerOptions)
 ```
 
 |Option|Type|Description|
 |--- |--- |--- |
-|`blockName`|`string`|Name of the script block to play (uses first if omitted)|
 |`initialVariables`|`AssetPropsPlainObject`|Initial variable values (overrides graph defaults).|
 |`events`|`ImscScriptPlayerEvents`|Event handlers (see below)|
 

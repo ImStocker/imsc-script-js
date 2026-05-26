@@ -1,6 +1,5 @@
 // ImscScriptPlayer.ts
 
-import type { ImscAsset, ImscBlock, ImscBlockScript } from "./Asset";
 import type {
     ImscScriptGraph,
     ImscScriptGraphNode,
@@ -12,7 +11,6 @@ import type {
     ImscScriptGraphNodeBinaryOp,
     ImscScriptGraphNodeUnaryOp,
     ImscScriptGraphVal,
-    ImscScriptGraphNodeOption,
     ImscScriptGraphVals,
 } from "./Graph";
 import { castAssetPropValueToBoolean, castAssetPropValueToFloat, castAssetPropValueToString, compareAssetPropValues, type AssetPropsPlainObject, type AssetPropsPlainObjectValue } from "./Props";
@@ -116,28 +114,19 @@ export class ImscScriptPlayer {
     private _playEpoch = 0;
     private _pause: boolean = false
 
-    constructor(asset: ImscAsset, options?: ImscScriptPlayerOptions) {
+    constructor(graph: ImscScriptGraph, options?: ImscScriptPlayerOptions) {
         this._events = options?.events ?? {};
 
-        // Find the block to play
-        let block: ImscBlock | undefined = asset.blocks.find(b => {
-            return b.type === 'script' && (!options?.blockName || options.blockName === b.name)
-        })
-        if (block) {
-            this._graph = (block as ImscBlockScript).computed;
-            this._variables = {
-                ...(this._graph.variables?.own ?
-                    Object.fromEntries(
-                        Object.entries(this._graph.variables.own).map(([varname, vardef]) => {
-                            return [varname, vardef.default ?? null]
-                        })
-                    ) : {}),
-                ...(options?.initialVariables ?? {})
-            };
-        }
-        else {
-            throw new Error('No valid script graph found in asset');
-        }
+        this._graph = graph;
+        this._variables = {
+            ...(this._graph.variables?.own ?
+                Object.fromEntries(
+                    Object.entries(this._graph.variables.own).map(([varname, vardef]) => {
+                        return [varname, vardef.default ?? null]
+                    })
+                ) : {}),
+            ...(options?.initialVariables ?? {})
+        };
     }
 
     /**
@@ -465,8 +454,8 @@ export class ImscScriptPlayer {
             node,
             nodeId
         })) ?? inputs;
-        if (nodeId !== this._currentNodeId) {
-            // goto called. Stop process this node
+        if (this._currentNodeId !== null) {
+            // goto called during handler. Stop process this node
             return;
         }
         if (playEpoch !== this._playEpoch) return; // Stop aborted execution
