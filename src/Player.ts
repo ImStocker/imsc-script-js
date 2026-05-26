@@ -97,7 +97,6 @@ export type ImscScriptPlayerState = {
 }
 
 export type ImscScriptPlayerOptions = {
-    blockName?: string;
     initialVariables?: AssetPropsPlainObject;
     events?: ImscScriptPlayerEvents;
 };
