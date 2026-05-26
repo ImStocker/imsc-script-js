@@ -103,7 +103,7 @@ const player = new ImscScriptPlayer(myDialogAsset, {
   blockName: 'content',                // optional, uses first script block if omitted
   initialVariables: { customVar: 42 }, // overrides defaults values of variables
   events: {
-    onSpeech: (speech) => {
+    onSpeech: ({ speech, node, nodeId }) => {
       // Render speech bubble 
       console.log(`${speech.character}: ${speech.text}`);
       if (speech.options.length) {
@@ -116,7 +116,7 @@ const player = new ImscScriptPlayer(myDialogAsset, {
         // button should call player.continue()
       }
     },
-    onTrigger: async (subject, inputs, node) => {
+    onTrigger: async ({ subject, inputs, node, nodeId }) => {
       // Handle game logic (e.g., give item, play sound)
       console.log(`Trigger: ${subject}`, inputs);
       // Return outputs that can be bound to other nodes
@@ -140,7 +140,7 @@ See browser usage in [tests/browser.html](tests/browser.html)
 
 * When a speech node **with options** appears, call `player.continue(selectedIndex)` when the user picks an option.
 
-* Use `player.pause()` to pause execution (e.g., during a trigger animation), and `player.continue()` to resume.
+* Use `player.pause()` to pause execution (e.g., if you need run script step by step), and `player.resume()` to continue. Use `player.continue()` to make one step forward while paused.
 
 * Jump to any node using `player.goto(nodeId)`.
 
@@ -152,7 +152,7 @@ choiceButton.onclick = () => player.continue(0);
 // Pause during a long animation
 player.pause();
 await playAnimation();
-player.continue();
+player.resume();
 ```
 
 ## **API Reference**
@@ -166,7 +166,7 @@ new ImscScriptPlayer(asset: ImscAsset, options?: ImscScriptPlayerOptions)
 |Option|Type|Description|
 |--- |--- |--- |
 |`blockName`|`string`|Name of the script block to play (uses first if omitted)|
-|`initialVariables`|`Record<string, Record<string, AssetPropsPlainObjectValue>`|Initial variable values (overrides graph defaults). `AssetPropsPlainObjectValue` is primitive value or IMS Creators's Enum, Asset, Workspace, File and etc.|
+|`initialVariables`|`AssetPropsPlainObject`|Initial variable values (overrides graph defaults).|
 |`events`|`ImscScriptPlayerEvents`|Event handlers (see below)|
 
 ### **Properties**
@@ -176,7 +176,7 @@ new ImscScriptPlayer(asset: ImscAsset, options?: ImscScriptPlayerOptions)
 |`isPaused`|`boolean`|true if the dialog is paused.|
 |`currentNode`|`ImscScriptGraphNode` | null|The currently active node.|
 |`currentNodeId`|`string` | null|ID of the currently active node.|
-|`variables`|`Readonly<Record<string, AssetPropsPlainObjectValue>>`|Current variable values (read‑only).|
+|`variables`|`Readonly<AssetPropsPlainObject>`|Current variable values (read‑only).|
 
 
 ### **Methods**
@@ -184,13 +184,14 @@ new ImscScriptPlayer(asset: ImscAsset, options?: ImscScriptPlayerOptions)
 |Method|Description|
 |--- |--- |
 |`play(startNodeId?: string): Promise<void>`|Starts the dialog from the graph's start node (or a specific node). Returns a promise that resolves when the dialog ends.|
-|`pause()`|Pauses execution. The dialog will not advance until continue() is called.|
-|`continue(optionIndex?: number): void`|Resumes execution. If called on a speech node, advances to the next node. If optionIndex is provided, selects that choice option.|
+|`pause()`|Pauses execution. The dialog will not advance until resume() or continue() is called.|
+|`resume()`|Resumes execution without advancing (e.g., after a paused trigger).|
+|`continue(optionIndex?: number): void`|Advances to the next node from a speech node (with optionIndex selects that choice). Also makes one step forward when paused.|
 |`goto(nodeId: string \| null): void`|Jumps to a specific node (or ends if null).|
 |`end(): void`|Ends the current dialog (resolves the play() promise).|
 |`setVariable(key: string, value: any): void`|Sets a runtime variable.|
 |`getVariable(key: string): any`|Gets a runtime variable.|
-|`serialize(): ImscScriptPlayerState`|Returns the current state (current node, variables, trigger outputs).|
+|`serialize(): ImscScriptPlayerState`|Returns the current state (current node, current inputs, variables, trigger outputs).|
 |`load(state: ImscScriptPlayerState): void`|Restores a previously serialized state.|
 |`on(event, handler): void`|Registers an event handler. Can be only one handler per event|
 |`inspectGraph(callback, startNodeId?)`|Walk over script graph nodes. Allows to check consequences of a choice without actually playing.|
@@ -198,18 +199,21 @@ new ImscScriptPlayer(asset: ImscAsset, options?: ImscScriptPlayerOptions)
 
 ### **Events**
 
-|Event|Parameters|Description|
+All event handlers receive a single event object with named properties.
+
+|Event|Event Properties|Description|
 |--- |--- |--- |
 |`onStart`|`()`|Dialog started.|
 |`onEnd`|`()`|Dialog ended.|
-|`onNodeEnter`|`(nodeId: string, node: ImscScriptGraphNode)`|Entered a new node.|
-|`onNodeExit`|`(nodeId: string, node: ImscScriptGraphNode)`|Exited a node.|
-|`onSpeech`|`(speech: ImscScriptPlayerSpeech, node: ImscScriptGraphNodeSpeech)`|A speech node is active. speech contains character, text, values, and options array (each with index, condition, text, values).|
-|`onChoice`|`(optionIndex: number)`|User selected a choice (fired before moving to the next node).|
-|`onTrigger`|`(subject: string, inputs: Record<string, AssetPropsPlainObjectValue>, node: ImscScriptGraphNodeTrigger)` → `outputs` (optional)|A trigger node is active. Perform game logic and optionally return outputs (record of values).|
-|`onVariableChange`|`(key: string, value: AssetPropsPlainObjectValue, oldValue: AssetPropsPlainObjectValue)`|A variable changed.|
-|`onError`|`(error: Error)`|An error occurred.|
-|`onStateChange`|`(state: ImscScriptPlayerState)`|State changed (useful for auto‑saving).|
+|`onNodeBeforeEnter`|`{ nodeId, node }`|Called before node inputs are evaluated. Can be async.|
+|`onNodeEnter`|`{ inputs, node, nodeId }` → `inputs` (optional)|Input values have been calculated. Return modified inputs if needed. Can be async.|
+|`onNodeExit`|`{ nodeId, node }`|Exited a node.|
+|`onSpeech`|`{ speech, node, nodeId }`|A speech node is active. `speech` contains character, text, values, and options array (each with index, condition, text, values).|
+|`onChoice`|`{ optionIndex, node, nodeId }`|User selected a choice (fired before moving to the next node).|
+|`onTrigger`|`{ subject, inputs, node, nodeId }` → `outputs` (optional)|A trigger node is active. Perform game logic and optionally return outputs.|
+|`onVariableChange`|`{ variable, newValue, oldValue }`|A variable changed.|
+|`onError`|`{ error }`|An error occurred.|
+|`onStateChange`|`{ state }`|State changed (useful for auto‑saving).|
 
 
 ## **State Serialization (Save / Load)**
