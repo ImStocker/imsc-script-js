@@ -47,9 +47,13 @@ test('plays a trigger node and receives outputs', async () => {
 
     const player = new ImscScriptPlayer(graph, {
         events: {
-            onTrigger: async ({ subject }) => {
+            onAction: async ({ subject }) => {
                 expect(subject).toBe('test')
-                return { result: 42 }
+                return {
+                    outputs: {
+                        result: 42
+                    }
+                }
             }
         }
     })
@@ -131,4 +135,50 @@ test('setVar node modifies a variable', async () => {
     const player = new ImscScriptPlayer(graph)
     await player.play()
     expect(player.getVariable('myVar')).toBe(99)
+})
+
+test('function node computing max of two values', async () => {
+    const graph: ImscScriptGraph = {
+        start: 'setResult',
+        nodes: {
+            constA: {
+                type: 'constInteger',
+                values: { value: 10 }
+            },
+            constB: {
+                type: 'constInteger',
+                values: { value: 25 }
+            },
+            maxFunc: {
+                type: 'function',
+                subject: 'max',
+                values: {
+                    a: { get: 'constA', param: 'result' },
+                    b: { get: 'constB', param: 'result' }
+                }
+            },
+            setResult: {
+                type: 'setVar',
+                values: {
+                    variable: 'result',
+                    value: { get: 'maxFunc', param: 'result' }
+                },
+                next: 'end'
+            },
+            end: { type: 'end' }
+        }
+    }
+
+    const player = new ImscScriptPlayer(graph, {
+        events: {
+            onAction: async ({ type, subject, inputs }) => {
+                if (type === 'function' && subject === 'max') {
+                    return { outputs: { result: Math.max(inputs.a as number, inputs.b as number) } }
+                }
+            }
+        }
+    })
+
+    await player.play()
+    expect(player.getVariable('result')).toBe(25)
 })

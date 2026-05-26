@@ -80,12 +80,12 @@
                 onChoice: ({ optionIndex }) => {
                     console.log(`Player chosen option ${optionIndex}`);
                 },
-                onTrigger: async ({ subject, inputs }) => {
-                    console.log(`Trigger: ${subject}`, inputs);
+                onAction: async ({ type, subject, inputs }) => {
+                    console.log(`Action: ${type} - ${subject}`, inputs);
                     if (subject === 'trade') {
                         alert('Here is trading screen...')
                     }
-                    return { success: true };
+                    return { outputs: { success: true } };
                 },
                 onEnd: () => {
                     console.log('Dialog finished');

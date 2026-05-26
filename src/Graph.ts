@@ -45,11 +45,13 @@ export type ImscScriptGraphNodeTrigger = ImscScriptGraphNodeBase & {
     next: string | null,
     type: 'trigger',
     values?: ImscScriptGraphVals,
-    subject: string,
-    params?: {
-        in?: ImscScriptGraphVarDef[],
-        out?: ImscScriptGraphVarDef[],
-    },
+    subject: string
+}
+
+export type ImscScriptGraphNodeFunction = ImscScriptGraphNodeBase & {
+    type: 'function',
+    values?: ImscScriptGraphVals,
+    subject: string
 }
 
 export type ImscScriptGraphNodeSpeech = ImscScriptGraphNodeBase & {
@@ -121,6 +123,7 @@ export type ImscScriptGraphNodeBranch = ImscScriptGraphNodeBase & {
 
 export type ImscScriptGraphNode =
     | ImscScriptGraphNodeTrigger
+    | ImscScriptGraphNodeFunction
     | ImscScriptGraphNodeSpeech
     | ImscScriptGraphNodeConst
     | ImscScriptGraphNodeBinaryOp

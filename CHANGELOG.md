@@ -10,6 +10,13 @@ Breaking changes:
 - Type `AssetPropsPlainObject` replaces `Record<string, AssetPropsPlainObjectValue>`
 - **`ImscScriptPlayer` constructor now takes `ImscScriptGraph` directly** instead of `ImscAsset` – removed `Asset.ts`, `blockName`, `ImscAsset`, `ImscBlock`, `ImscBlockScript` types
 - `index.ts` no longer exports from `./Asset`
+- `ImscScriptPlayerOptions.blockName` removed (no longer used)
+- `ImscScriptGraphNodeSpeech.subject` field removed
+- `ImscScriptGraphNodeBase.index` and `pos` are now optional
+- `ImscScriptGraphNodeTrigger.params` removed
+- `ImscScriptPlayerEvents.onTrigger` renamed to `onAction` with discriminated `type` union (`'trigger'` / `'function'`)
+- `onAction` return type changed to `{ outputs?, next? }` - can override next node
+- `emitError` / `emitTrigger` removed in favor of `raiseError` / unified `onAction` event
 
 New features:
 - `onNodeBeforeEnter` event – called before node inputs are evaluated
@@ -19,6 +26,9 @@ New features:
 - `onChoice`, `onTrigger`, `onNodeExit`, `onVariableChange`, `onError`, `onStateChange`, `onSpeech` events now include `nodeId` and extra context
 - Pause on error instead of ending
 - Fixed `enterNode` guard condition to correctly detect `goto()` calls during async handlers
+- **`ImscScriptGraphNodeFunction`** - new node type for side-effect-only expressions (evaluated during value resolution, calls `onAction` with `type: 'function'`)
+- **`getVar` now evaluates variable name** as a value expression (supports dynamic variable names)
+- **Trigger `onAction` can override next node** by returning `{ next: 'nodeId' }`
 
 # v1.1.0
 

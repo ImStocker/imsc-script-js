@@ -10,7 +10,7 @@ Works with any web game engine (Phaser, PixiJS, or vanilla JS) and provides full
 - 🎭 **Speech nodes** with optional choices (branching dialogs)
 - 🔀 **Conditional branching** based on variables or expressions
 - 📦 **Variable management** – set, get, and use in conditions
-- ⚡ **Trigger nodes** – invoke game logic and receive outputs
+- ⚡ **Trigger / Function nodes** – invoke game logic and receive outputs
 - 💾 **Serializable state** – save/load, undo/redo, replay
 - 🔌 **Framework agnostic** – works with Phaser, PixiJS, or any rendering engine
 - 📝 **Expression evaluation** – math, comparison, and logical operators
@@ -105,11 +105,11 @@ const player = new ImscScriptPlayer(myDialogGraph, {
         // button should call player.continue()
       }
     },
-    onTrigger: async ({ subject, inputs, node, nodeId }) => {
+    onAction: async ({ type, subject, inputs, node, nodeId }) => {
       // Handle game logic (e.g., give item, play sound)
-      console.log(`Trigger: ${subject}`, inputs);
-      // Return outputs that can be bound to other nodes
-      return { success: true, reward: 100 };
+      console.log(`Action: ${type} - ${subject}`, inputs);
+      // Return outputs and optionally override the next node
+      return { outputs: { success: true, reward: 100 } };
     },
     onEnd: () => {
       console.log('Dialog finished');
@@ -198,7 +198,7 @@ All event handlers receive a single event object with named properties.
 |`onNodeExit`|`{ nodeId, node }`|Exited a node.|
 |`onSpeech`|`{ speech, node, nodeId }`|A speech node is active. `speech` contains character, text, values, and options array (each with index, condition, text, values).|
 |`onChoice`|`{ optionIndex, node, nodeId }`|User selected a choice (fired before moving to the next node).|
-|`onTrigger`|`{ subject, inputs, node, nodeId }` → `outputs` (optional)|A trigger node is active. Perform game logic and optionally return outputs.|
+|`onAction`|`{ type, subject, inputs, node, nodeId }` → `{ outputs?, next? }` (optional)|A trigger or function node is active. `type` is `'trigger'` or `'function'`. Return `outputs` for downstream bindings and optionally `next` to override the target node.|
 |`onVariableChange`|`{ variable, newValue, oldValue }`|A variable changed.|
 |`onError`|`{ error }`|An error occurred.|
 |`onStateChange`|`{ state }`|State changed (useful for auto‑saving).|

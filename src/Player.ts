@@ -12,6 +12,7 @@ import type {
     ImscScriptGraphNodeUnaryOp,
     ImscScriptGraphVal,
     ImscScriptGraphVals,
+    ImscScriptGraphNodeFunction,
 } from "./Graph";
 import { castAssetPropValueToBoolean, castAssetPropValueToFloat, castAssetPropValueToString, compareAssetPropValues, type AssetPropsPlainObject, type AssetPropsPlainObjectValue } from "./Props";
 
@@ -57,22 +58,29 @@ export type ImscScriptPlayerEvents = {
         node: ImscScriptGraphNodeSpeech,
         nodeId: string
     }) => void;
-    // Triggered when user made choice in speech node
+    // Triggered when user made choice in speech node 
     onChoice?: (event: {
         optionIndex: number,
         node: ImscScriptGraphNodeSpeech,
         nodeId: string
     }) => void;
-    // Player entered trigger nodde
-    onTrigger?: (event: {
+    // Player entered trigger node
+    onAction?: (event: {
+        type: 'trigger',
         subject: string,
         inputs: AssetPropsPlainObject,
         node: ImscScriptGraphNodeTrigger,
         nodeId: string
+    } | {
+        type: 'function',
+        subject: string,
+        inputs: AssetPropsPlainObject,
+        node: ImscScriptGraphNodeFunction,
+        nodeId: string
     }) =>
         | void
-        | AssetPropsPlainObject
-        | Promise<AssetPropsPlainObject | void>;
+        | { outputs?: AssetPropsPlainObject, next?: string | null }
+        | Promise<{ outputs?: AssetPropsPlainObject, next?: string | null } | void>;
     // Variable changed
     onVariableChange?: (event: {
         variable: string,
@@ -154,7 +162,9 @@ export class ImscScriptPlayer {
         this._pause = false;
         let nodeId = startNodeId ?? this._graph.start;
         if (!nodeId || !this._graph.nodes[nodeId]) {
-            this.emitError(new Error(`Start node "${nodeId}" not found in graph`));
+            this.raiseError(
+                new Error(`Start node "${nodeId}" not found in graph`)
+            )
             return;
         }
 
@@ -231,8 +241,7 @@ export class ImscScriptPlayer {
             return;
         }
         if (!this._graph.nodes[nodeId]) {
-            this.emitError(new Error(`Node "${nodeId}" not found`));
-            this.pause();
+            this.raiseError(new Error(`Node "${nodeId}" not found`));
             return;
         }
 
@@ -312,7 +321,7 @@ export class ImscScriptPlayer {
      */
     load(state: ImscScriptPlayerState): void {
         if (state.currentNodeId && !this._graph.nodes[state.currentNodeId]) {
-            this.emitError(new Error(`Cannot restore: node "${state.currentNodeId}" not found`));
+            this.raiseError(new Error(`Cannot restore: node "${state.currentNodeId}" not found`));
             return;
         }
         this.pause();
@@ -395,23 +404,23 @@ export class ImscScriptPlayer {
                     await this.handleSpeechNode(nodeId, node, this._currentNodeInputs);
                     break;
 
-                case 'branch':
+                case 'branch': {
                     const next = this.handleBranchNode(nodeId, node, this._currentNodeInputs);
                     this.goto(next);
                     break;
+                }
 
                 case 'setVar':
                     this.handleSetVarNode(nodeId, node, this._currentNodeInputs);
                     this.goto(node.next);
                     break;
 
-                case 'trigger':
-                    await this.handleTriggerNode(nodeId, node, this._currentNodeInputs);
+                case 'trigger': {
+                    const next = await this.handleTriggerNode(nodeId, node, this._currentNodeInputs);
                     if (playEpoch !== this._playEpoch) return; // Stop aborted execution
-                    if (!this.isPaused) {
-                        this.goto(node.next);
-                    }
+                    this.goto(next)
                     break;
+                }
 
                 case 'end':
                     this.end();
@@ -423,8 +432,7 @@ export class ImscScriptPlayer {
             }
         }
         catch (err: any) {
-            this.emitError(err)
-            this.pause();
+            this.raiseError(err)
         }
     }
 
@@ -519,9 +527,28 @@ export class ImscScriptPlayer {
         this.setVariable(variable, inputs.value);
     }
 
-    private async handleTriggerNode(nodeId: string, node: ImscScriptGraphNodeTrigger, inputs: AssetPropsPlainObject): Promise<void> {
-        const outputs = await this.emitTrigger(node.subject, inputs, node, nodeId);
-        this._triggerOutputs[nodeId] = outputs;
+    private async handleTriggerNode(nodeId: string, node: ImscScriptGraphNodeTrigger, inputs: AssetPropsPlainObject): Promise<string | null> {
+        const result = await this.emitAsync('onAction', {
+            type: 'trigger',
+            subject: node.subject,
+            inputs,
+            node,
+            nodeId
+        });
+        this._triggerOutputs[nodeId] = result?.outputs ?? {};
+        return result?.next !== null ? (result?.next ?? node.next) : null;
+    }
+
+
+    private async handleFunctionNode(nodeId: string, node: ImscScriptGraphNodeFunction, inputs: AssetPropsPlainObject): Promise<AssetPropsPlainObject> {
+        const result = await this.emitAsync('onAction', {
+            type: 'function',
+            subject: node.subject,
+            inputs,
+            node,
+            nodeId
+        });
+        return result?.outputs ?? {};
     }
 
 
@@ -569,9 +596,10 @@ export class ImscScriptPlayer {
             case 'constBoolean':
                 return { result: node.values.value };
 
-            case 'getVar':
-                const varName = (node as ImscScriptGraphNodeGetVar).values.variable;
-                return { result: this._variables[varName] };
+            case 'getVar': {
+                const varName = await this.evaluateValue((node as ImscScriptGraphNodeGetVar).values.variable);
+                return { result: this._variables[castAssetPropValueToString(varName)] };
+            }
 
             case 'opAnd':
             case 'opOr':
@@ -642,9 +670,25 @@ export class ImscScriptPlayer {
                 // Return stored outputs for this trigger node (may be empty if not yet executed)
                 return this._triggerOutputs[nodeId] ?? {};
 
+            case 'function': {
+                const inputs = await this.evaluateVals(node.values)
+                return await this.handleFunctionNode(
+                    nodeId,
+                    node,
+                    inputs,
+                )
+            }
+
             default:
                 return {}
         }
+    }
+
+    private raiseError(error: Error) {
+        this.emit('onError', {
+            error
+        })
+        this.pause();
     }
 
     private emit<K extends keyof ImscScriptPlayerEvents>(
@@ -665,31 +709,6 @@ export class ImscScriptPlayer {
         if (handler) {
             return (handler as any)(...args);
         }
-    }
-
-    private async emitTrigger(
-        subject: string,
-        inputs: AssetPropsPlainObject,
-        node: ImscScriptGraphNodeTrigger,
-        nodeId: string
-    ): Promise<AssetPropsPlainObject> {
-        const handler = this._events.onTrigger;
-        if (handler) {
-            return (await handler({
-                subject,
-                inputs,
-                node,
-                nodeId
-            })) ?? {};
-        }
-        else return {}
-
-    }
-
-    private emitError(error: Error): void {
-        this.emit('onError', {
-            error
-        });
     }
 
     private emitStateChange(): void {
