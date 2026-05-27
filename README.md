@@ -18,6 +18,7 @@ Works with any web game engine (Phaser, PixiJS, or vanilla JS) and provides full
 - 📝 **Expression evaluation** – math, comparison, and logical operators
 - 🧩 **Async support** – triggers can be asynchronous
 - 📜 **Sub‑scripts** – `callScript` nodes run nested graphs with isolated variables and `in`/`out` data flow
+- 🧰 **Custom nodes** – register your own exec (flow) or data (expression) node types via `registerCustomNode`
 - ⏸️ **Pause/Resume** – pause execution during triggers or user input
 
 ## Installation
@@ -186,6 +187,7 @@ new ImscScriptPlayer(graph: ImscScriptGraph, options?: ImscScriptPlayerOptions)
 |`getVariable(key: string): any`|Gets a runtime variable.|
 |`serialize(): ImscScriptPlayerState`|Returns the current state (frame stack, globals).|
 |`load(state: ImscScriptPlayerState): void`|Restores a previously serialized state.|
+|`registerCustomNode(typeName, kind, handler)`|Registers a handler for a custom node type. `kind` is `'exec'` (flow node) or `'data'` (expression node).|
 |`on(event, handler): void`|Registers an event handler. Can be only one handler per event|
 |`inspectGraph(callback, startNodeId?)`|Walk over script graph nodes. Allows to check consequences of a choice without actually playing.|
 

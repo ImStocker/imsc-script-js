@@ -208,6 +208,33 @@ Calls a sub-graph (sub-script). The sub-graph is loaded via the `onLoadScript` e
 }
 ```
 
+#### `custom` (exec kind)
+
+Any node with a `type` not matching one of the built-in node types. Registered via `player.registerCustomNode(typeName, 'exec', handler)`. Behaves like a `trigger`: blocks the flow, receives pre-evaluated `inputs`, and can override the next node via the handler return value.
+
+```typescript
+{
+    type: string,                   // Custom type name matching registered handler
+    next: string | null,            // Default next node (can be overridden by handler)
+    values?: { [prop: string]: Val },
+    index?: number,
+    pos?: { x: number, y: number }
+}
+```
+
+#### `custom` (data kind)
+
+Any expression node with a `type` not matching one of the built-in expression types. Registered via `player.registerCustomNode(typeName, 'data', handler)`. Behaves like a `function`: evaluated on demand when referenced by a binding, returns `{ outputs: { result: ... } }`.
+
+```typescript
+{
+    type: string,                   // Custom type name matching registered handler
+    values?: { [prop: string]: Val },
+    index?: number,
+    pos?: { x: number, y: number }
+}
+```
+
 ### Expression nodes (evaluated only when referenced by a binding)
 
 #### `getVar`
@@ -331,3 +358,4 @@ Every node may include:
 - **`callScript`** pushes a new frame onto the stack, runs the sub-graph, then pops the frame and copies `out`/`in-out` variable values into the parent frame's `nodeOutputs`.
 - **Global variables** (`kind: 'global'` or omitted) are stored in a shared store accessible from any frame.
 - **`function`** / **`trigger`** nodes delegate to external handlers (`onAction` event) which return output values. `function` is non-blocking (expression-only), `trigger` blocks the flow until the handler resolves.
+- **Custom nodes** are registered via `registerCustomNode(typeName, kind, handler)`. `exec` custom nodes are visited as flow nodes (like `trigger`). `data` custom nodes are evaluated as expression nodes (like `function`). The handler receives `{ inputs, node, nodeId }` and returns `{ outputs?, next? }`. `next` is only meaningful for `exec` kind.

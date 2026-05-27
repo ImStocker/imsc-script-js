@@ -323,3 +323,88 @@ test('callScript node reads and modifies globals from sub-graph', async () => {
     expect(player.getVariable('counter')).toBe(5)
     expect(player.getVariable('result')).toBe(5)
 })
+
+test('custom exec node runs handler with inputs and stores outputs', async () => {
+    const graph: ImscScriptGraph = {
+        start: 'greet',
+        nodes: {
+            greet: {
+                type: 'makeGreeting' as any,
+                next: 'save',
+                values: { name: 'Alice' }
+            },
+            save: {
+                type: 'setVar',
+                values: { variable: 'result', value: { get: 'greet', param: 'greeting' } },
+                next: 'end'
+            },
+            end: { type: 'end' }
+        }
+    }
+
+    const player = new ImscScriptPlayer(graph)
+    player.registerCustomNode('makeGreeting', 'exec', async ({ inputs }) => {
+        return { outputs: { greeting: `Hello, ${inputs.name}!` } }
+    })
+
+    await player.play()
+    expect(player.getVariable('result')).toBe('Hello, Alice!')
+})
+
+test('custom exec node next override via handler', async () => {
+    const graph: ImscScriptGraph = {
+        start: 'decide',
+        nodes: {
+            decide: {
+                type: 'route' as any,
+                next: 'skipped',
+                values: { goTo: 'target' }
+            },
+            skipped: {
+                type: 'setVar',
+                values: { variable: 'result', value: 'wrong' },
+                next: 'end'
+            },
+            target: {
+                type: 'setVar',
+                values: { variable: 'result', value: 'correct' },
+                next: 'end'
+            },
+            end: { type: 'end' }
+        }
+    }
+
+    const player = new ImscScriptPlayer(graph)
+    player.registerCustomNode('route', 'exec', async ({ inputs }) => {
+        return { next: inputs.goTo as string }
+    })
+
+    await player.play()
+    expect(player.getVariable('result')).toBe('correct')
+})
+
+test('custom data node used in expression', async () => {
+    const graph: ImscScriptGraph = {
+        start: 'setResult',
+        nodes: {
+            double: {
+                type: 'doubleValue' as any,
+                values: { value: 21 }
+            },
+            setResult: {
+                type: 'setVar',
+                values: { variable: 'result', value: { get: 'double', param: 'result' } },
+                next: 'end'
+            },
+            end: { type: 'end' }
+        }
+    }
+
+    const player = new ImscScriptPlayer(graph)
+    player.registerCustomNode('doubleValue', 'data', async ({ inputs }) => {
+        return { outputs: { result: (inputs.value as number) * 2 } }
+    })
+
+    await player.play()
+    expect(player.getVariable('result')).toBe(42)
+})

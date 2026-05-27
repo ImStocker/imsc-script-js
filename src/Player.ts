@@ -103,6 +103,17 @@ export type ImscScriptPlayerEvents = {
     }) => ImscScriptGraph | Promise<ImscScriptGraph>
 }
 
+export type ImscScriptPlayerCustomNodeEvent = {
+    inputs: AssetPropsPlainObject,
+    node: ImscScriptGraphNode,
+    nodeId: string
+}
+
+export type ImscScriptPlayerCustomNodeResult = {
+    outputs?: AssetPropsPlainObject,
+    next?: string | null
+}
+
 export type ImscScriptPlayerState = {
     frames: ImscScriptPlayerFrame[]
     globals: AssetPropsPlainObject;
@@ -124,6 +135,11 @@ export type ImscScriptPlayerFrame = {
     nodeOutputs: Record<string, AssetPropsPlainObject>;
 }
 
+type ImscScriptPlayerCustomNodeDef = {
+    kind: 'exec' | 'data',
+    handler: (event: ImscScriptPlayerCustomNodeEvent) => ImscScriptPlayerCustomNodeResult | Promise<ImscScriptPlayerCustomNodeResult>
+}
+
 export class ImscScriptPlayer {
     private _events: ImscScriptPlayerEvents = {};
     private _frames: ImscScriptPlayerFrame[] = [];
@@ -131,6 +147,7 @@ export class ImscScriptPlayer {
     private _playResolve: (() => void) | null = null;
     private _playEpoch = 0;
     private _pause: boolean = false
+    private _customNodeHandlers: Map<string, ImscScriptPlayerCustomNodeDef> = new Map()
 
     constructor(graph: ImscScriptGraph, options?: ImscScriptPlayerOptions) {
         this._events = options?.events ?? {};
@@ -494,6 +511,14 @@ export class ImscScriptPlayer {
         }
     }
 
+    registerCustomNode(
+        typeName: string,
+        kind: 'exec' | 'data',
+        handler: (event: ImscScriptPlayerCustomNodeEvent) => ImscScriptPlayerCustomNodeResult | Promise<ImscScriptPlayerCustomNodeResult>
+    ): void {
+        this._customNodeHandlers.set(typeName, { kind, handler })
+    }
+
     private async processCurrentNode(playEpoch: number) {
         const nodeId = this.currentFrame.currentNodeId;
         if (!nodeId) return;
@@ -540,9 +565,22 @@ export class ImscScriptPlayer {
                     break;
                 }
 
-                default:
-                    // Expression nodes should not be visited as flow nodes
-                    throw new Error(`Unexpected node type "${node.type}" in flow`)
+                default: {
+                    const custom = this._customNodeHandlers.get((node as any).type)
+                    if (custom && custom.kind === 'exec') {
+                        const result = await custom.handler({
+                            inputs: this.currentFrame.currentNodeInputs,
+                            node,
+                            nodeId
+                        })
+                        if (playEpoch !== this._playEpoch) return
+                        this.currentFrame.nodeOutputs[nodeId] = result?.outputs ?? {}
+                        const next = result?.next !== undefined ? result?.next : (node as any).next
+                        this.goto(next)
+                        break
+                    }
+                    throw new Error(`Unexpected node type "${(node as any).type}" in flow`)
+                }
             }
         }
         catch (err: any) {
@@ -818,8 +856,24 @@ export class ImscScriptPlayer {
                 )
             }
 
-            default:
+            default: {
+                const custom = this._customNodeHandlers.get((node as any).type)
+                if (custom) {
+                    if (custom.kind === 'data') {
+                        const inputs = await this.evaluateVals((node as any).values)
+                        const result = await custom.handler({
+                            inputs,
+                            node,
+                            nodeId
+                        })
+                        return result?.outputs ?? {}
+                    }
+                    else {
+                        return this.currentFrame.nodeOutputs[nodeId] ?? {};
+                    }
+                }
                 return {}
+            }
         }
     }
 
