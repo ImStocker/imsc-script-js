@@ -461,8 +461,20 @@ export class ImscScriptPlayer {
      */
     serialize(): ImscScriptPlayerState {
         return {
-            frames: this._frames,
-            globals: this._globalVariables
+            frames: this._frames.map(f => {
+                return {
+                    ...f,
+                    currentNode: f.currentNode ? {
+                        ...f.currentNode
+                    } : null,
+                    variables: {
+                        ...f.variables
+                    }
+                }
+            }),
+            globals: {
+                ...this._globalVariables
+            }
         };
     }
 
