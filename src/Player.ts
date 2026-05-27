@@ -101,6 +101,14 @@ export type ImscScriptPlayerEvents = {
     onLoadScript?: (event: {
         scriptId: string
     }) => ImscScriptGraph | Promise<ImscScriptGraph>
+    // Entered to into new subscript (callScript)
+    onSubScriptEnter?: (event: {
+        frame: ImscScriptPlayerFrame
+    }) => void;
+    // Exited from subscript
+    onSubScriptExit?: (event: {
+        frame: ImscScriptPlayerFrame
+    }) => void;
 }
 
 export type ImscScriptPlayerCustomNodeEvent = {
@@ -152,18 +160,19 @@ export class ImscScriptPlayer {
     constructor(graph: ImscScriptGraph, options?: ImscScriptPlayerOptions) {
         this._events = options?.events ?? {};
 
-        this._newFrame(
+        const rootFrame = this._createFrame(
             options?.scriptId ?? null,
             graph,
             options?.initialVariables ?? {}
         )
+        this._frames.unshift(rootFrame);
     }
 
     get currentFrame() {
         return this._frames[0]!;
     }
 
-    private _newFrame(scriptId: string | null, graph: ImscScriptGraph, initialVariables: AssetPropsPlainObject) {
+    private _createFrame(scriptId: string | null, graph: ImscScriptGraph, initialVariables: AssetPropsPlainObject) {
         const frame: ImscScriptPlayerFrame = {
             currentNodeId: null,
             currentNodeInputs: {},
@@ -190,7 +199,7 @@ export class ImscScriptPlayer {
                 }
             }
         }
-        this._frames.unshift(frame);
+        return frame;
     }
 
     /**
@@ -311,7 +320,7 @@ export class ImscScriptPlayer {
 
     private endFrame() {
         if (this._frames.length > 1) {
-            const left_frame = this._frames.shift();
+            const left_frame = this._frames.shift()!;
             const node = this.currentFrame.currentNodeId ?
                 (this.currentFrame.graph.nodes[this.currentFrame.currentNodeId] as ImscScriptGraphNodeCallScript) :
                 null;
@@ -321,13 +330,16 @@ export class ImscScriptPlayer {
             }
             if (this.currentFrame.currentNodeId) {
                 const outputs: AssetPropsPlainObject = {}
-                for (const [varname, vardef] of Object.entries(left_frame?.graph?.variables?.own ?? {})) {
+                for (const [varname, vardef] of Object.entries(left_frame.graph?.variables?.own ?? {})) {
                     if (vardef.kind === 'out' || vardef.kind === 'in-out') {
-                        outputs[varname] = left_frame?.variables[varname] ?? null
+                        outputs[varname] = left_frame.variables[varname] ?? null
                     }
                 }
                 this.currentFrame.nodeOutputs[this.currentFrame.currentNodeId] = outputs
             }
+            this.emit('onSubScriptExit', {
+                frame: left_frame
+            })
             this.goto(node.next)
         }
         else {
@@ -723,7 +735,11 @@ export class ImscScriptPlayer {
                 }
             }
         }
-        this._newFrame(scriptId, script, initial);
+        const subScriptFrame = this._createFrame(scriptId, script, initial);
+        this._frames.unshift(subScriptFrame);
+        this.emit('onSubScriptEnter', {
+            frame: subScriptFrame
+        })
         return script.start;
     }
 

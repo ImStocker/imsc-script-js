@@ -207,6 +207,8 @@ All event handlers receive a single event object with named properties.
 |`onChoice`|`{ optionIndex, node, nodeId }`|User selected a choice (fired before moving to the next node).|
 |`onAction`|`{ type, subject, inputs, node, nodeId }` → `{ outputs?, next? }` (optional)|A trigger or function node is active. `type` is `'trigger'` or `'function'`. Return `outputs` for downstream bindings and optionally `next` to override the target node.|
 |`onLoadScript`|`{ scriptId }` → `ImscScriptGraph`|Load a sub‑script by ID when a `callScript` node is activated.|
+|`onSubScriptEnter`|`{ frame }`|A sub‑script frame was pushed onto the stack (entered a `callScript` node).|
+|`onSubScriptExit`|`{ frame }`|A sub‑script frame was popped from the stack (exited a `callScript` node).|
 |`onVariableChange`|`{ variable, newValue, oldValue, frameIndex }`|A variable changed in a frame.|
 |`onError`|`{ error }`|An error occurred.|
 |`onStateChange`|`{ state }`|State changed (useful for auto‑saving).|

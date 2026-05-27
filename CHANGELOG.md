@@ -35,6 +35,7 @@ New features:
 - **`onLoadScript` event** – called with `{ scriptId }` to resolve sub‑graphs at runtime
 - **`globals` / `frames` properties** – expose the full frame stack and shared globals
 - **`frameIndex`** added to `onVariableChange` event
+- **`onSubScriptEnter`** / **`onSubScriptExit`** events – called when a `callScript` sub‑script frame is pushed or popped
 - **`registerCustomNode(typeName, kind, handler)`** – register handlers for custom node types; `kind: 'exec'` for flow nodes, `kind: 'data'` for expression nodes
 
 # v1.1.0
