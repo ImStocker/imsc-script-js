@@ -71,10 +71,7 @@ test('branch node follows condition', async () => {
                     name: 'flag',
                     type: {
                         Type: 'boolean'
-                    },
-                    title: 'Flag',
-                    description: null,
-                    index: 0
+                    }
                 }
             }
         },
@@ -188,9 +185,9 @@ test('callScript node runs a sub-graph and reads outputs', async () => {
         start: 'start',
         variables: {
             own: {
-                a: { name: 'a', type: { Type: 'integer' }, title: 'A', description: null, index: 0, kind: 'in' },
-                b: { name: 'b', type: { Type: 'integer' }, title: 'B', description: null, index: 1, kind: 'in' },
-                sum: { name: 'sum', type: { Type: 'integer' }, title: 'Sum', description: null, index: 2, kind: 'out' }
+                a: { name: 'a', type: { Type: 'integer' }, kind: 'in' },
+                b: { name: 'b', type: { Type: 'integer' }, kind: 'in' },
+                sum: { name: 'sum', type: { Type: 'integer' }, kind: 'out' }
             }
         },
         nodes: {
@@ -255,8 +252,8 @@ test('callScript node reads and modifies globals from sub-graph', async () => {
         start: 'start',
         variables: {
             own: {
-                amount: { name: 'amount', type: { Type: 'integer' }, title: 'Amount', description: null, index: 0, kind: 'in' },
-                counter: { name: 'counter', type: { Type: 'integer' }, title: 'Counter', description: null, index: 1, kind: 'global' }
+                amount: { name: 'amount', type: { Type: 'integer' }, kind: 'in' },
+                counter: { name: 'counter', type: { Type: 'integer' }, kind: 'global' }
             }
         },
         nodes: {
@@ -289,8 +286,8 @@ test('callScript node reads and modifies globals from sub-graph', async () => {
         start: 'callInc',
         variables: {
             own: {
-                counter: { name: 'counter', type: { Type: 'integer' }, title: 'Counter', description: null, index: 0 },
-                result: { name: 'result', type: { Type: 'integer' }, title: 'Result', description: null, index: 1, kind: 'local' }
+                counter: { name: 'counter', type: { Type: 'integer' } },
+                result: { name: 'result', type: { Type: 'integer' }, kind: 'local' }
             }
         },
         nodes: {

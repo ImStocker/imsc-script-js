@@ -3,21 +3,24 @@ import type { AssetPropsPlainObjectValue, AssetPropValueAsset } from "./Props"
 export type ImscScriptGraphParamDef = {
     name: string,
     type: { Type: string },
-    title: string,
+    title?: string,
     default?: AssetPropsPlainObjectValue,
-    description: string | null,
-    index: number
-    autoFill?: boolean | null;
+    description?: string | null,
+    index?: number
 }
 
 export type ImscScriptGraphVarDef = ImscScriptGraphParamDef & {
     kind?: 'global' | 'local' | 'in' | 'out' | 'in-out' // 'global' if not specified 
 }
 
+export type ImscScriptGraphSpeechParamDef = ImscScriptGraphParamDef & {
+    autoFill?: boolean;
+}
+
 export type ImscScriptGraphSettings = {
     speech?: {
-        main?: { [prop: string]: ImscScriptGraphParamDef },
-        option?: { [prop: string]: ImscScriptGraphParamDef }
+        main?: { [prop: string]: ImscScriptGraphSpeechParamDef },
+        option?: { [prop: string]: ImscScriptGraphSpeechParamDef }
     }
 }
 
