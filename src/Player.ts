@@ -285,9 +285,13 @@ export class ImscScriptPlayer {
      * If paused, make one step forward
      * @param optionIndex selected choice if there are options
      */
-    continue(optionIndex?: number): void {
+    continue(optionIndex?: number, resume = false): void {
         if (!this.isRunning || !this.currentFrame.currentNode) return;
         const node = this.currentFrame.graph.nodes[this.currentFrame.currentNode.id];
+
+        if (resume) {
+            this._pause = false;
+        }
 
         if (node.type === 'speech') {
             let next: string | null = null;

@@ -4,7 +4,7 @@ Breaking changes:
 - All event handlers now receive a single event object instead of positional arguments
 - `ImscScriptPlayerState` now includes `currentInputs`
 - `load()` now pauses execution before restoring state
-- `continue()` behavior changed: no longer unpauses; use new `resume()` method to unpause without advancing
+- `continue()` behavior changed: no longer unpauses by default; use `resume` parameter or `resume` method to unpause
 - Input values are pre-calculated and passed through node handlers (branch, setVar, trigger, speech)
 - Type `AssetPropsPlainObject` replaces `Record<string, AssetPropsPlainObjectValue>`
 - **`ImscScriptPlayer` constructor now takes `ImscScriptGraph` directly** instead of `ImscAsset` – removed `Asset.ts`, `blockName`, `ImscAsset`, `ImscBlock`, `ImscBlockScript` types

@@ -180,7 +180,7 @@ new ImscScriptPlayer(graph: ImscScriptGraph, options?: ImscScriptPlayerOptions)
 |`play(startNodeId?: string): Promise<void>`|Starts the dialog from the graph's start node (or a specific node). Returns a promise that resolves when the dialog ends.|
 |`pause()`|Pauses execution. The dialog will not advance until resume() or continue() is called.|
 |`resume()`|Resumes execution without advancing (e.g., after a paused trigger).|
-|`continue(optionIndex?: number): void`|Advances to the next node from a speech node (with optionIndex selects that choice). Also makes one step forward when paused.|
+|`continue(optionIndex?: number, resume = false): void`|Advances to the next node from a speech node (with optionIndex selects that choice). If resume true, unpause execution|
 |`goto(nodeId: string \| null): void`|Jumps to a specific node (or ends if null).|
 |`end(): void`|Ends the current dialog (resolves the play() promise).|
 |`setVariable(key: string, value: any): void`|Sets a runtime variable.|
