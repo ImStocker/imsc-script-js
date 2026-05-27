@@ -49,8 +49,10 @@ A value can be any **plain value** (literal), or a **binding** that references a
 | AssetPropValueTimestamp | AssetPropValueEnum | AssetPropValueFormula
 | AssetPropValueAsset | AssetPropValueAccount | AssetPropValueSelection 
 | AssetPropValueProject | AssetPropValueWorkspace | AssetPropValueType
-| 
 
+// Arrays of literal values
+// Structures: { [key: string]: literal value}
+ 
 // Binding: resolves a value from another node at runtime
 { get: string, param: string }
 //   get   — ID of the source node
@@ -65,7 +67,6 @@ A value can be any **plain value** (literal), or a **binding** that references a
 | `string` | `"..."` |
 | `number` | `42` or `3.14` |
 | `boolean` | `true` / `false` |
-| `number[]` | `[1, 2, 3]` |
 | `AssetPropValueText` | `{ Str: "plain text", Ops: [...] }` |
 | `AssetPropValueFile` | `{ FileId: "...", Title: "...", Size: N, Dir: "..."\|null, Store: "..." }` |
 | `AssetPropValueBlob` | `{ Blob: "...", Type: "...", Key?: "..." }` |
