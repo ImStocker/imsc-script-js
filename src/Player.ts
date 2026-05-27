@@ -44,7 +44,7 @@ export type ImscScriptPlayerEvents = {
         node: ImscScriptGraphNode
     }) => void | Promise<void>;
     // Input values of node are calculated. Awaits callback. Callback can change input values
-    onNodeEnter?: (event: {
+    onNodeEvaluated?: (event: {
         inputs: AssetPropsPlainObject,
         optionsInputs: AssetPropsPlainObject[],
         node: ImscScriptGraphNode,
@@ -54,6 +54,15 @@ export type ImscScriptPlayerEvents = {
         | Promise<void>
         | { inputs?: AssetPropsPlainObject, optionsInputs?: AssetPropsPlainObject[] }
         | Promise<{ inputs?: AssetPropsPlainObject, optionsInputs?: AssetPropsPlainObject[] }>;
+    // Player entered to node.  Awaits callback.
+    onNodeEnter?: (event: {
+        inputs: AssetPropsPlainObject,
+        optionsInputs: AssetPropsPlainObject[],
+        node: ImscScriptGraphNode,
+        nodeId: string
+    }) =>
+        | void
+        | Promise<void>
     // Player exists node
     onNodeExit?: (event: {
         nodeId: string,
@@ -348,6 +357,7 @@ export class ImscScriptPlayer {
                 }
                 this.currentFrame.nodeOutputs[this.currentFrame.currentNode.id] = outputs
             }
+            this.emitStateChange();
             this.emit('onSubScriptExit', {
                 frame: left_frame
             })
@@ -638,7 +648,7 @@ export class ImscScriptPlayer {
         let optionsInputs = nodeWithVals.options ? await Promise.all(nodeWithVals.options.map(async (option, index) => {
             return await this.evaluateVals(option.values);
         })) : [];
-        const enterResult = (await this.emitAsync('onNodeEnter', {
+        const enterResult = (await this.emitAsync('onNodeEvaluated', {
             inputs,
             optionsInputs,
             node,
@@ -658,6 +668,12 @@ export class ImscScriptPlayer {
             optionsInputs
         }
         this.emitStateChange();
+        await this.emitAsync('onNodeEnter', {
+            inputs,
+            optionsInputs,
+            node,
+            nodeId
+        })
         if (this.isPaused) {
             return;
         }
@@ -761,6 +777,7 @@ export class ImscScriptPlayer {
         }
         const subScriptFrame = this._createFrame(scriptId, script, initial);
         this._frames.unshift(subScriptFrame);
+        this.emitStateChange();
         this.emit('onSubScriptEnter', {
             frame: subScriptFrame
         })

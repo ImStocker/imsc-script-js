@@ -2,7 +2,6 @@
 
 Breaking changes:
 - All event handlers now receive a single event object instead of positional arguments
-- `onNodeEnter` can now return modified inputs; called after input values are calculated (use `onNodeBeforeEnter` for pre-calculation callback)
 - `ImscScriptPlayerState` now includes `currentInputs`
 - `load()` now pauses execution before restoring state
 - `continue()` behavior changed: no longer unpauses; use new `resume()` method to unpause without advancing
@@ -36,6 +35,7 @@ New features:
 - **`globals` / `frames` properties** – expose the full frame stack and shared globals
 - **`frameIndex`** added to `onVariableChange` event
 - **`onSubScriptEnter`** / **`onSubScriptExit`** events – called when a `callScript` sub‑script frame is pushed or popped
+- **`onNodeEvaluated`** event – fired after node input values (and option values) are evaluated, can return modified values; runs before `onNodeEnter`
 - **`registerCustomNode(typeName, kind, handler)`** – register handlers for custom node types; `kind: 'exec'` for flow nodes, `kind: 'data'` for expression nodes
 
 # v1.1.0

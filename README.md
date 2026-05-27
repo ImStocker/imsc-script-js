@@ -201,7 +201,8 @@ All event handlers receive a single event object with named properties.
 |`onStart`|`()`|Dialog started.|
 |`onEnd`|`()`|Dialog ended.|
 |`onNodeBeforeEnter`|`{ nodeId, node }`|Called before node inputs are evaluated. Can be async.|
-|`onNodeEnter`|`{ inputs, node, nodeId }` → `inputs` (optional)|Input values have been calculated. Return modified inputs if needed. Can be async.|
+|`onNodeEvaluated`|`{ inputs, optionsInputs, node, nodeId }` → `{ inputs?, optionsInputs? }` (optional)|Node input values (and options) have been evaluated. Return modified values if needed.|
+|`onNodeEnter`|`{ inputs, node, nodeId }`|Player entered to node. Fires after `onNodeEvaluated`. Can be async.|
 |`onNodeExit`|`{ nodeId, node }`|Exited a node.|
 |`onSpeech`|`{ speech, node, nodeId }`|A speech node is active. `speech` contains character, text, values, and options array (each with index, condition, text, values).|
 |`onChoice`|`{ optionIndex, node, nodeId }`|User selected a choice (fired before moving to the next node).|
