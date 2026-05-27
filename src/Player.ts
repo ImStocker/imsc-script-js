@@ -666,7 +666,8 @@ export class ImscScriptPlayer {
     }
 
     private async handleCallScriptNode(nodeId: string, node: ImscScriptGraphNodeCallScript, inputs: AssetPropsPlainObject): Promise<string | null> {
-        let scriptId = typeof node.subject === 'string' ? node.subject : (castAssetPropValueToAsset(node.subject)?.AssetId ?? null)
+        const subjectAsset = castAssetPropValueToAsset(node.subject);
+        const scriptId = subjectAsset ? subjectAsset.AssetId : castAssetPropValueToString(node.subject);
         if (!scriptId) {
             throw new Error('Subject of subscript call is not defined')
         }
