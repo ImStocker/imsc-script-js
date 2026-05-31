@@ -16,7 +16,7 @@ import type {
     ImscScriptGraphNodeCallScript,
     ImscScriptGraphNodeOption,
 } from "./Graph";
-import { castAssetPropValueToAsset, castAssetPropValueToBoolean, castAssetPropValueToFloat, castAssetPropValueToString, compareAssetPropValues, type AssetPropsPlainObject, type AssetPropsPlainObjectValue, type AssetPropValue } from "./Props";
+import { castAssetPropValueToAsset, castAssetPropValueToBoolean, castAssetPropValueToFloat, castAssetPropValueToString, compareAssetPropValues, type AssetPropsPlainObject, type AssetPropsPlainObjectValue } from "./Props";
 
 export type ImscScriptPlayerSpeechOption = {
     index: number
@@ -453,14 +453,14 @@ export class ImscScriptPlayer {
      * Get current state of variables
      */
     get variables(): Readonly<AssetPropsPlainObject> {
-        return { ...this.currentFrame.variables };
+        return this.currentFrame.variables;
     }
 
     /**
      * Get current state of variables
      */
     get globals(): Readonly<AssetPropsPlainObject> {
-        return { ...this._globalVariables };
+        return this._globalVariables;
     }
 
     /**

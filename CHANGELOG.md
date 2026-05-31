@@ -1,3 +1,8 @@
+# v2.0.1
+
+Fixes:
+- `variables` and `globals` getters now return direct references to underlying objects instead of shallow copies
+
 # v2.0.0
 
 Breaking changes:
