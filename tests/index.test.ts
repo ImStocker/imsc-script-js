@@ -129,7 +129,11 @@ test('setVar node modifies a variable', async () => {
         }
     }
 
-    const player = new ImscScriptPlayer(graph)
+    const player = new ImscScriptPlayer(graph, {
+        initialVariables: {
+            myVar: 25
+        }
+    })
     await player.play()
     expect(player.getVariable('myVar')).toBe(99)
 })
