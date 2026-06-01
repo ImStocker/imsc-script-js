@@ -37,13 +37,11 @@ and use `new ImscScript.ImscScriptPlayer` to create player
 
 ## **Usage**
 
-### **1. Create a script graph in IMS Creators**
+### 1. Create a JSON graph from scratch or export script from IMS Creators
 
-Export your dialog graph as JSON or just use saved file from Desktop version. Use the `computed` content of a script block as the graph input.
- 
-<img width="800" alt="image" src="https://github.com/user-attachments/assets/ad6d752e-f23f-4874-9d0b-71584a7d71fb" />
+A graph is a JSON object with a `start` node ID and a `nodes` dictionary. Each node has a `type` field and an ID of the next node (`next` field, or `options` if it has multiple output variants). Nodes can have input data in a `values` field, where each value can be a fixed value or a link to another node's output via `{ "get": "nodeId", "param": "outputName" }`. See the [JSON schema](./docs/graph-schema.md) for the full specification.
 
-Example minimal graph:
+Example of graph:
 
 ```json
 {
@@ -82,8 +80,34 @@ Example minimal graph:
       },
       "next": "end"
     },
-    "end": { "id": "end", "type": "end" }
+    "end": { "type": "end" }
   }
+}
+```
+
+You can also export graphs as JSON from [IMS Creators](https://ims.cr5.space/) — use the `computed` content of a script block as the graph input.
+
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/ad6d752e-f23f-4874-9d0b-71584a7d71fb" />
+
+Example of exported file:
+
+```json
+{
+  "id": "some uuid",
+  "blocks": [
+    {
+      "id": "some uuid",
+      "type": "script",
+      "computed": {
+        //
+        // Here is a graph
+        //
+      }
+      // ...
+    }
+    // ...
+  ]
+  // ...
 }
 ```
 
