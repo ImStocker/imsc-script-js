@@ -91,7 +91,7 @@ You can also export graphs as JSON from [IMS Creators](https://ims.cr5.space/) â
 
 Example of exported file:
 
-```json
+```js
 {
   "id": "some uuid",
   "blocks": [
