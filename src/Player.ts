@@ -16,7 +16,7 @@ import type {
     ImscScriptGraphNodeCallScript,
     ImscScriptGraphNodeOption,
 } from "./Graph";
-import { castAssetPropValueToAsset, castAssetPropValueToBoolean, castAssetPropValueToFloat, castAssetPropValueToString, compareAssetPropValues, type AssetPropsPlainObject, type AssetPropsPlainObjectValue } from "./Props";
+import { castAssetPropValueToAsset, castAssetPropValueToBoolean, castAssetPropValueToFloat, castAssetPropValueToString, compareAssetPropValues, getAssetPropType, AssetPropType, type AssetPropsPlainObject, type AssetPropsPlainObjectValue, type AssetPropValueAsset } from "./Props";
 
 export type ImscScriptPlayerSpeechOption = {
     index: number
@@ -710,8 +710,13 @@ export class ImscScriptPlayer {
     }
 
     private _handleSpeechNode(nodeId: string, node: ImscScriptGraphNodeSpeech, inputs: AssetPropsPlainObject, optionsInputs: AssetPropsPlainObject[]): void {
+        let character = inputs.character
+            ? getAssetPropType(inputs.character) === AssetPropType.ASSET
+                ? (inputs.character as AssetPropValueAsset).Title
+                : castAssetPropValueToString(inputs.character)
+            : undefined
         const content: ImscScriptPlayerSpeech = {
-            character: inputs.character ? castAssetPropValueToString(inputs.character) : undefined,
+            character,
             text: inputs.text ? castAssetPropValueToString(inputs.text) : undefined,
             values: inputs,
             options: []

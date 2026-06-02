@@ -1,3 +1,8 @@
+# v2.0.2
+
+Fixes:
+- `_handleSpeechNode` now preserves `AssetPropValueAsset.Title` as the speech character name instead of converting the whole asset object to a string
+
 # v2.0.1
 
 Fixes:
