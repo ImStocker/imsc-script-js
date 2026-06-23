@@ -617,6 +617,12 @@ export class ImscScriptPlayer {
                     break;
                 }
 
+                case 'jump': {
+                    const to = castAssetPropValueToString(evaluatedNode.inputs.to);
+                    this.goto(to);
+                    break;
+                }
+
                 default: {
                     const custom = this._customNodeHandlers.get((graphNode as any).type)
                     if (custom && custom.kind === 'exec') {

@@ -127,6 +127,13 @@ export type ImscScriptGraphNodeBranch = ImscScriptGraphNodeBase & {
     ]
 }
 
+export type ImscScriptGraphNodeJump = ImscScriptGraphNodeBase & {
+    type: 'jump',
+    values?: {
+        to: ImscScriptGraphVal
+    }
+}
+
 
 export type ImscScriptGraphNodeCallScript = ImscScriptGraphNodeBase & {
     type: 'callScript',
@@ -148,6 +155,7 @@ export type ImscScriptGraphNode =
     | ImscScriptGraphNodeSetVar
     | ImscScriptGraphNodeBranch
     | ImscScriptGraphNodeCallScript
+    | ImscScriptGraphNodeJump
 
 export type ImscScriptGraph = {
     start: string | null,
