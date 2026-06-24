@@ -412,3 +412,111 @@ test('custom data node used in expression', async () => {
     await player.play()
     expect(player.getVariable('result')).toBe(42)
 })
+
+test('chance node picks option based on weighted probability', async () => {
+    const graph: ImscScriptGraph = {
+        start: 'chance',
+        nodes: {
+            chance: {
+                type: 'chance' as any,
+                next: null,
+                options: [
+                    { next: 'optionA', values: { chance: 0.7 } },
+                    { next: 'optionB', values: { chance: 0.3 } }
+                ]
+            },
+            optionA: {
+                type: 'setVar' as any,
+                next: 'end',
+                values: { variable: 'result', value: 'A' }
+            },
+            optionB: {
+                type: 'setVar' as any,
+                next: 'end',
+                values: { variable: 'result', value: 'B' }
+            },
+            end: { type: 'end' }
+        }
+    }
+
+    let chosenOption = -1
+    const player = new ImscScriptPlayer(graph, {
+        events: {
+            onChance: ({ defaultOptionIndex }) => {
+                chosenOption = defaultOptionIndex
+            }
+        }
+    })
+    await player.play()
+    expect(['A', 'B']).toContain(player.getVariable('result'))
+})
+
+test('chance node onChance can override selection', async () => {
+    const graph: ImscScriptGraph = {
+        start: 'chance',
+        nodes: {
+            chance: {
+                type: 'chance' as any,
+                next: null,
+                options: [
+                    { next: 'optionA', values: { chance: 0.7 } },
+                    { next: 'optionB', values: { chance: 0.3 } }
+                ]
+            },
+            optionA: {
+                type: 'setVar' as any,
+                next: 'end',
+                values: { variable: 'result', value: 'A' }
+            },
+            optionB: {
+                type: 'setVar' as any,
+                next: 'end',
+                values: { variable: 'result', value: 'B' }
+            },
+            end: { type: 'end' }
+        }
+    }
+
+    const player = new ImscScriptPlayer(graph, {
+        events: {
+            onChance: () => 1 // Always pick option B
+        }
+    })
+    await player.play()
+    expect(player.getVariable('result')).toBe('B')
+})
+
+test('chance node with no explicit chances picks randomly', async () => {
+    const graph: ImscScriptGraph = {
+        start: 'chance',
+        nodes: {
+            chance: {
+                type: 'chance' as any,
+                next: null,
+                options: [
+                    { next: 'optionA', values: {} },
+                    { next: 'optionB', values: {} }
+                ]
+            },
+            optionA: {
+                type: 'setVar' as any,
+                next: 'end',
+                values: { variable: 'result', value: 'A' }
+            },
+            optionB: {
+                type: 'setVar' as any,
+                next: 'end',
+                values: { variable: 'result', value: 'B' }
+            },
+            end: { type: 'end' }
+        }
+    }
+
+    const player = new ImscScriptPlayer(graph, {
+        events: {
+            onChance: () => 0 // Always pick first
+        }
+    })
+    await player.play()
+    expect(player.getVariable('result')).toBe('A')
+})

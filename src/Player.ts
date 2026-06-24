@@ -15,6 +15,7 @@ import type {
     ImscScriptGraphNodeFunction,
     ImscScriptGraphNodeCallScript,
     ImscScriptGraphNodeOption,
+    ImscScriptGraphNodeChance,
 } from "./Graph";
 import { castAssetPropValueToAsset, castAssetPropValueToBoolean, castAssetPropValueToFloat, castAssetPropValueToString, compareAssetPropValues, getAssetPropType, AssetPropType, type AssetPropsPlainObject, type AssetPropsPlainObjectValue, type AssetPropValueAsset } from "./Props";
 
@@ -130,6 +131,15 @@ export type ImscScriptPlayerEvents = {
         duration: number,
         nodeId: string,
     }) => void | Promise<void>;
+    // Player entered chance node. Provides the random value and the default selected option.
+    // Can return an option index to override the selection (e.g. in debug mode).
+    onChance?: (event: {
+        randomValue: number,
+        options: { chance: number | null, nextNodeId: string | null }[],
+        node: ImscScriptGraphNodeChance,
+        nodeId: string,
+        defaultOptionIndex: number
+    }) => number | void | Promise<number | void>;
 }
 
 export type ImscScriptPlayerCustomNodeEvent = {
@@ -641,6 +651,13 @@ export class ImscScriptPlayer {
                     break;
                 }
 
+                case 'chance': {
+                    const next = await this._handleChanceNode(nodeId, graphNode as ImscScriptGraphNodeChance, evaluatedNode.optionsInputs);
+                    if (playEpoch !== this._playEpoch) return;
+                    this.goto(next);
+                    break;
+                }
+
                 default: {
                     const custom = this._customNodeHandlers.get((graphNode as any).type)
                     if (custom && custom.kind === 'exec') {
@@ -771,6 +788,86 @@ export class ImscScriptPlayer {
         const condition = castAssetPropValueToBoolean(inputs.condition);
         const chosenOption = condition ? node.options[0] : node.options[1];
         return chosenOption?.next ?? null;
+    }
+
+    private async _handleChanceNode(nodeId: string, node: ImscScriptGraphNodeChance, optionsInputs: AssetPropsPlainObject[]): Promise<string | null> {
+        const options = node.options ?? [];
+        if (options.length === 0) return node.next;
+
+        const chances: (number | null)[] = [];
+        for (let i = 0; i < options.length; i++) {
+            const optVals = optionsInputs[i] ?? {};
+            const chance = castAssetPropValueToFloat(optVals.chance);
+            chances.push(chance !== null && chance !== undefined ? chance : null);
+        }
+
+        const explicitSum = chances.reduce((sum, c) => sum + (c ?? 0), 0);
+        const explicitCount = chances.filter(c => c !== null).length;
+        const elseCount = options.length - explicitCount;
+
+        if (explicitCount === 0) {
+            const randomValue = Math.random();
+            const defaultOptionIndex = Math.min(Math.floor(randomValue * options.length), options.length - 1);
+            const overrideIndex = await this._emitAsync('onChance', {
+                randomValue,
+                options: chances.map((c, i) => ({ chance: c, nextNodeId: options[i]!.next ?? null })),
+                node,
+                nodeId,
+                defaultOptionIndex
+            });
+            const finalIndex = typeof overrideIndex === 'number' ? overrideIndex : defaultOptionIndex;
+            return options[finalIndex]?.next ?? null;
+        }
+
+        const clamped = chances.map(c => c !== null ? c : 0);
+        const sum = clamped.reduce((a, b) => a + b, 0);
+        if (sum <= 0) {
+            const randomValue = Math.random();
+            const defaultOptionIndex = Math.min(Math.floor(randomValue * options.length), options.length - 1);
+            const overrideIndex = await this._emitAsync('onChance', {
+                randomValue,
+                options: chances.map((c, i) => ({ chance: c, nextNodeId: options[i]!.next ?? null })),
+                node,
+                nodeId,
+                defaultOptionIndex
+            });
+            const finalIndex = typeof overrideIndex === 'number' ? overrideIndex : defaultOptionIndex;
+            return options[finalIndex]?.next ?? null;
+        }
+
+        if (elseCount > 0) {
+            const remaining = 1 - explicitSum;
+            for (let i = 0; i < chances.length; i++) {
+                if (chances[i] === null) {
+                    chances[i] = Math.max(0, remaining / elseCount);
+                }
+            }
+        }
+
+        const finalChances = chances.map(c => c ?? 0);
+        const total = finalChances.reduce((a, b) => a + b, 0);
+        const randomValue = Math.random() * total;
+
+        let cumulative = 0;
+        let defaultOptionIndex = 0;
+        for (let i = 0; i < finalChances.length; i++) {
+            cumulative += finalChances[i]!;
+            if (randomValue < cumulative) {
+                defaultOptionIndex = i;
+                break;
+            }
+        }
+
+        const overrideIndex = await this._emitAsync('onChance', {
+            randomValue,
+            options: chances.map((c, i) => ({ chance: c, nextNodeId: options[i]!.next ?? null })),
+            node,
+            nodeId,
+            defaultOptionIndex
+        });
+
+        const finalIndex = typeof overrideIndex === 'number' ? overrideIndex : defaultOptionIndex;
+        return options[finalIndex]?.next ?? null;
     }
 
     private _handleSetVarNode(nodeId: string, node: ImscScriptGraphNodeSetVar, inputs: AssetPropsPlainObject): void {

@@ -149,10 +149,18 @@ export type ImscScriptGraphNodeCallScript = ImscScriptGraphNodeBase & {
     values?: ImscScriptGraphVals,
 }
 
+export type ImscScriptGraphNodeChance = ImscScriptGraphNodeBase & {
+    type: 'chance',
+    next: string | null,
+    values?: ImscScriptGraphVals,
+    options?: ImscScriptGraphNodeOption[]
+}
+
 export type ImscScriptGraphNode =
     | ImscScriptGraphNodeTrigger
     | ImscScriptGraphNodeFunction
     | ImscScriptGraphNodeSpeech
+    | ImscScriptGraphNodeChance
     | ImscScriptGraphNodeConst
     | ImscScriptGraphNodeBinaryOp
     | ImscScriptGraphNodeUnaryOp
