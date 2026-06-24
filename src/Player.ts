@@ -124,6 +124,12 @@ export type ImscScriptPlayerEvents = {
     onSubScriptExit?: (event: {
         frame: ImscScriptPlayerFrame
     }) => void;
+    // Player entered delay node. Handler should wait for the specified duration.
+    // If not set, the player uses setTimeout internally.
+    onDelay?: (event: {
+        duration: number,
+        nodeId: string,
+    }) => void | Promise<void>;
 }
 
 export type ImscScriptPlayerCustomNodeEvent = {
@@ -620,6 +626,18 @@ export class ImscScriptPlayer {
                 case 'jump': {
                     const to = castAssetPropValueToString(evaluatedNode.inputs.to);
                     this.goto(to);
+                    break;
+                }
+
+                case 'timer': {
+                    const seconds = castAssetPropValueToFloat(evaluatedNode.inputs.value) ?? 0;
+                    if (this._events.onDelay) {
+                        await this._events.onDelay({ duration: seconds, nodeId });
+                        if (playEpoch !== this._playEpoch) return;
+                    } else {
+                        await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+                    }
+                    this.goto((graphNode as any).next);
                     break;
                 }
 
