@@ -139,7 +139,7 @@ export type ImscScriptPlayerEvents = {
         options: { chance: number | null, nextNodeId: string | null }[],
         node: ImscScriptGraphNodeChance,
         nodeId: string,
-    }) => number | Promise<number> | void;
+    }) => number | Promise<number>;
 }
 
 export type ImscScriptPlayerCustomNodeEvent = {
@@ -851,12 +851,6 @@ export class ImscScriptPlayer {
                 break;
             }
         }
-
-        this._emit('onChoice', {
-            optionIndex: chosenIndex,
-            node,
-            nodeId
-        });
 
         return options[chosenIndex]?.next ?? node.next;
     }
