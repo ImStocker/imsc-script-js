@@ -75,10 +75,10 @@ export type ImscScriptPlayerEvents = {
         node: ImscScriptGraphNodeSpeech,
         nodeId: string
     }) => void;
-    // Triggered when user made choice in speech or chance node
+    // Triggered when user made choice in speech node
     onChoice?: (event: {
         optionIndex: number,
-        node: ImscScriptGraphNode,
+        node: ImscScriptGraphNodeSpeech,
         nodeId: string
     }) => void;
     // Player entered trigger node
@@ -644,10 +644,10 @@ export class ImscScriptPlayer {
                     const seconds = castAssetPropValueToFloat(evaluatedNode.inputs.value) ?? 0;
                     if (this._events.onDelay) {
                         await this._events.onDelay({ duration: seconds, nodeId });
-                        if (playEpoch !== this._playEpoch) return;
                     } else {
                         await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
                     }
+                    if (playEpoch !== this._playEpoch) return;
                     this.goto((graphNode as any).next);
                     break;
                 }
