@@ -131,12 +131,9 @@ export type ImscScriptPlayerEvents = {
         duration: number,
         nodeId: string,
     }) => void | Promise<void>;
-    // Player entered chance node. Provides the computed chances for each option.
-    // Return a random value (or a Promise that resolves to it) in range [0, totalSum).
-    // The player determines the chosen option by walking cumulative chances.
-    // If the handler doesn't return a value, the player generates a random value internally.
+    // Player entered chance node.
+    // Return a random value (or a Promise that resolves to it) in range [0, 1).
     onChance?: (event: {
-        options: { chance: number | null, nextNodeId: string | null }[],
         node: ImscScriptGraphNodeChance,
         nodeId: string,
     }) => number | Promise<number>;
@@ -791,68 +788,32 @@ export class ImscScriptPlayer {
     }
 
     private async _handleChanceNode(nodeId: string, node: ImscScriptGraphNodeChance, optionsInputs: AssetPropsPlainObject[]): Promise<string | null> {
-        const options = node.options ?? [];
-        if (options.length === 0) return node.next;
 
-        const chances: (number | null)[] = [];
-        for (let i = 0; i < options.length; i++) {
-            const optVals = optionsInputs[i] ?? {};
-            const chance = castAssetPropValueToFloat(optVals.chance);
-            chances.push(chance !== null && chance !== undefined ? chance : null);
-        }
-
-        let explicitSum = 0;
-        let explicitCount = 0;
-        for (const c of chances) {
-            if (c !== null) {
-                explicitSum += c;
-                explicitCount += 1;
-            }
-        }
-        const elseCount = options.length - explicitCount;
-
-        // Normalize chances: fill null values
-        if (explicitCount === 0 || explicitSum <= 0) {
-            const uniformChance = 1 / options.length;
-            for (let i = 0; i < chances.length; i++) {
-                chances[i] = uniformChance;
-            }
-        } else if (elseCount > 0) {
-            const remaining = 1 - explicitSum;
-            const perElse = Math.max(0, remaining / elseCount);
-            for (let i = 0; i < chances.length; i++) {
-                if (chances[i] === null) {
-                    chances[i] = perElse;
-                }
-            }
-        }
-
-        const finalChances = chances.map(c => c ?? 0);
-        let total = 0;
-        for (const v of finalChances) total += v;
-
-        const optionsData = chances.map((c, i) => ({ chance: c, nextNodeId: options[i]!.next ?? null }));
-
-        const eventResult = await this._emitAsync('onChance', {
-            options: optionsData,
+        let randomValue = await this._emitAsync('onChance', {
             node,
             nodeId,
         });
+        if (randomValue === undefined) {
+            randomValue = Math.random();
+        }
 
-        const randomValue = eventResult !== undefined ? eventResult : Math.random() * total;
+        this.currentFrame.nodeOutputs[nodeId] = {
+            random: randomValue
+        }
 
-        // Walk cumulative chances to find chosen index
-        let cumulative = 0;
-        let chosenIndex = 0;
-        for (let i = 0; i < finalChances.length; i++) {
-            cumulative += finalChances[i]!;
-            if (randomValue < cumulative) {
-                chosenIndex = i;
-                break;
+        const options = node.options ?? [];
+        if (options.length === 0) return node.next;
+
+        let accChance = 0;
+        for (let i = 0; i < options.length; i++) {
+            const optVals = optionsInputs[i] ?? {};
+            const chance = accChance + (castAssetPropValueToFloat(optVals.chance) ?? 0);
+            if (randomValue < chance) {
+                return options[i].next
             }
         }
 
-        return options[chosenIndex]?.next ?? node.next;
+        return node.next;
     }
 
     private _handleSetVarNode(nodeId: string, node: ImscScriptGraphNodeSetVar, inputs: AssetPropsPlainObject): void {
@@ -1030,6 +991,7 @@ export class ImscScriptPlayer {
 
             case 'callScript':
             case 'trigger':
+            case 'chance':
                 // Return stored outputs for this trigger node (may be empty if not yet executed)
                 return this.currentFrame.nodeOutputs[nodeId] ?? {};
 

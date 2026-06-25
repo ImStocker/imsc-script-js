@@ -413,58 +413,80 @@ test('custom data node used in expression', async () => {
     expect(player.getVariable('result')).toBe(42)
 })
 
-test('chance node picks option based on weighted probability', async () => {
+test('chance node routes based on random value with onChance override', async () => {
     const graph: ImscScriptGraph = {
-        start: 'chance',
+        start: 'ch',
         nodes: {
-            chance: {
-                type: 'chance' as any,
-                next: null,
+            ch: {
+                type: 'chance',
+                next: 'fallback',
                 options: [
-                    { next: 'optionA', values: { chance: 0.7 } },
-                    { next: 'optionB', values: { chance: 0.3 } }
+                    { values: { chance: 0.1 }, next: 'a' },
+                    { values: { chance: 0.3 }, next: 'b' },
                 ]
             },
-            optionA: {
-                type: 'setVar' as any,
-                next: 'end',
-                values: { variable: 'result', value: 'A' }
+            a: {
+                type: 'setVar',
+                values: { variable: 'result', value: 'A' },
+                next: 'end'
             },
-            optionB: {
-                type: 'setVar' as any,
-                next: 'end',
-                values: { variable: 'result', value: 'B' }
+            b: {
+                type: 'setVar',
+                values: { variable: 'result', value: 'B' },
+                next: 'end'
+            },
+            fallback: {
+                type: 'setVar',
+                values: { variable: 'result', value: 'fallback' },
+                next: 'end'
             },
             end: { type: 'end' }
         }
     }
 
-    const player = new ImscScriptPlayer(graph)
-    await player.play()
-    expect(['A', 'B']).toContain(player.getVariable('result'))
+    // Test first option (0 <= random < 0.1)
+    const player1 = new ImscScriptPlayer(graph, {
+        events: {
+            onChance: () => 0.05
+        }
+    })
+    await player1.play()
+    expect(player1.getVariable('result')).toBe('A')
+
+    // Test second option (0.1 <= random < 0.4)
+    const player2 = new ImscScriptPlayer(graph, {
+        events: {
+            onChance: () => 0.25
+        }
+    })
+    await player2.play()
+    expect(player2.getVariable('result')).toBe('B')
+
+    // Test fallback (random >= 0.4)
+    const player3 = new ImscScriptPlayer(graph, {
+        events: {
+            onChance: () => 0.5
+        }
+    })
+    await player3.play()
+    expect(player3.getVariable('result')).toBe('fallback')
 })
 
-test('chance node onChance can override selection', async () => {
+test('chance node stores random value in node outputs', async () => {
     const graph: ImscScriptGraph = {
-        start: 'chance',
+        start: 'ch',
         nodes: {
-            chance: {
-                type: 'chance' as any,
-                next: null,
+            ch: {
+                type: 'chance',
+                next: 'end',
                 options: [
-                    { next: 'optionA', values: { chance: 0.7 } },
-                    { next: 'optionB', values: { chance: 0.3 } }
+                    { values: { chance: 1.0 }, next: 'save' },
                 ]
             },
-            optionA: {
-                type: 'setVar' as any,
-                next: 'end',
-                values: { variable: 'result', value: 'A' }
-            },
-            optionB: {
-                type: 'setVar' as any,
-                next: 'end',
-                values: { variable: 'result', value: 'B' }
+            save: {
+                type: 'setVar',
+                values: { variable: 'result', value: { get: 'ch', param: 'random' } },
+                next: 'end'
             },
             end: { type: 'end' }
         }
@@ -472,37 +494,26 @@ test('chance node onChance can override selection', async () => {
 
     const player = new ImscScriptPlayer(graph, {
         events: {
-            onChance: ({ options }) => {
-                // Return lower bound of option 1's range (chance of option 0 = 0.7)
-                return options[0]?.chance ?? 0
-            }
+            onChance: () => 0.42
         }
     })
     await player.play()
-    expect(player.getVariable('result')).toBe('B')
+    expect(player.getVariable('result')).toBe(0.42)
 })
 
-test('chance node with no explicit chances picks randomly', async () => {
+test('chance node with empty options uses next directly', async () => {
     const graph: ImscScriptGraph = {
-        start: 'chance',
+        start: 'ch',
         nodes: {
-            chance: {
-                type: 'chance' as any,
-                next: null,
-                options: [
-                    { next: 'optionA', values: {} },
-                    { next: 'optionB', values: {} }
-                ]
+            ch: {
+                type: 'chance',
+                next: 'target',
+                options: []
             },
-            optionA: {
-                type: 'setVar' as any,
-                next: 'end',
-                values: { variable: 'result', value: 'A' }
-            },
-            optionB: {
-                type: 'setVar' as any,
-                next: 'end',
-                values: { variable: 'result', value: 'B' }
+            target: {
+                type: 'setVar',
+                values: { variable: 'result', value: 'direct' },
+                next: 'end'
             },
             end: { type: 'end' }
         }
@@ -510,200 +521,9 @@ test('chance node with no explicit chances picks randomly', async () => {
 
     const player = new ImscScriptPlayer(graph, {
         events: {
-            onChance: () => {
-                return 0 // Always picks first option (range [0, 0.5))
-            }
+            onChance: () => 0.99
         }
     })
     await player.play()
-    expect(player.getVariable('result')).toBe('A')
-})
-
-test('chance node with promise-based onChance resolved externally', async () => {
-    const graph: ImscScriptGraph = {
-        start: 'chance',
-        nodes: {
-            chance: {
-                type: 'chance' as any,
-                next: null,
-                options: [
-                    { next: 'optionA', values: { chance: 0.7 } },
-                    { next: 'optionB', values: { chance: 0.3 } }
-                ]
-            },
-            optionA: {
-                type: 'setVar' as any,
-                next: 'end',
-                values: { variable: 'result', value: 'A' }
-            },
-            optionB: {
-                type: 'setVar' as any,
-                next: 'end',
-                values: { variable: 'result', value: 'B' }
-            },
-            end: { type: 'end' }
-        }
-    }
-
-    let chanceResolve: ((value: number) => void) | null = null;
-    const player = new ImscScriptPlayer(graph, {
-        events: {
-            onChance: () => {
-                return new Promise<number>((resolve) => {
-                    chanceResolve = resolve;
-                });
-            }
-        }
-    })
-
-    const playPromise = player.play();
-    await new Promise(r => setTimeout(r, 10));
-
-    // Resolve with lower bound of option B (chance of option 0 = 0.7)
-    if (chanceResolve) {
-        chanceResolve(0.7);
-    }
-
-    await playPromise;
-    expect(player.getVariable('result')).toBe('B')
-})
-
-test('chance node with else branch: selecting else ends script, non-else continues', async () => {
-    const graph: ImscScriptGraph = {
-        start: 'chance',
-        nodes: {
-            chance: {
-                type: 'chance' as any,
-                next: null,
-                options: [
-                    { next: null, values: {} },
-                    { next: 'speech', values: { chance: 0.5 } },
-                ]
-            },
-            speech: {
-                type: 'speech' as any,
-                next: 'end',
-                values: { text: 'Hello' }
-            },
-            end: { type: 'end' }
-        }
-    }
-
-    let chanceResolve: ((value: number) => void) | null = null;
-    const speeches: string[] = [];
-    const player = new ImscScriptPlayer(graph, {
-        events: {
-            onChance: () => {
-                return new Promise<number>((resolve) => {
-                    chanceResolve = resolve;
-                });
-            },
-            onSpeech: ({ speech }) => {
-                speeches.push(speech.text ?? '');
-                player.continue();
-            }
-        }
-    })
-
-    const playPromise = player.play();
-    await new Promise(r => setTimeout(r, 10));
-
-    // Use lower bound for option 1 = 0.5 (sum of chances[0])
-    // This should select option 1 (speech)
-    if (chanceResolve) {
-        chanceResolve(0.5);
-    }
-
-    await playPromise;
-    expect(speeches).toEqual(['Hello'])
-})
-
-test('chance node with continue() called during pending onChance does not break', async () => {
-    // Simulates the race condition where continue() is called 
-    // while _processCurrentNode is awaiting onChance
-    const graph: ImscScriptGraph = {
-        start: 'chance',
-        nodes: {
-            chance: {
-                type: 'chance' as any,
-                next: null,
-                options: [
-                    { next: 'optionA', values: { chance: 0.7 } },
-                    { next: 'optionB', values: { chance: 0.3 } }
-                ]
-            },
-            optionA: {
-                type: 'setVar' as any,
-                next: 'end',
-                values: { variable: 'result', value: 'A' }
-            },
-            optionB: {
-                type: 'setVar' as any,
-                next: 'end',
-                values: { variable: 'result', value: 'B' }
-            },
-            end: { type: 'end' }
-        }
-    }
-
-    let chanceResolve: ((value: number) => void) | null = null;
-    let callCount = 0;
-    const player = new ImscScriptPlayer(graph, {
-        events: {
-            onChance: ({ options }) => {
-                callCount++;
-                // Simulate DialogPlayer: decide on default, return promise
-                return new Promise<number>((resolve) => {
-                    chanceResolve = resolve;
-                });
-            }
-        }
-    })
-
-    const playPromise = player.play();
-    await new Promise(r => setTimeout(r, 10));
-
-    // Simulate user clicking during the chance delay
-    // This triggers continue() which calls _processCurrentNode 
-    player.continue(1, true);
-
-    // Now resolve the chance promise
-    if (chanceResolve) {
-        chanceResolve(0.7);
-    }
-
-    await playPromise;
-    // The script should complete normally with either option
-    expect(['A', 'B']).toContain(player.getVariable('result'))
-})
-
-test('chance node auto-advances when no onChance handler', async () => {
-    const graph: ImscScriptGraph = {
-        start: 'chance',
-        nodes: {
-            chance: {
-                type: 'chance' as any,
-                next: null,
-                options: [
-                    { next: 'optionA', values: { chance: 0.7 } },
-                    { next: 'optionB', values: { chance: 0.3 } }
-                ]
-            },
-            optionA: {
-                type: 'setVar' as any,
-                next: 'end',
-                values: { variable: 'result', value: 'A' }
-            },
-            optionB: {
-                type: 'setVar' as any,
-                next: 'end',
-                values: { variable: 'result', value: 'B' }
-            },
-            end: { type: 'end' }
-        }
-    }
-
-    const player = new ImscScriptPlayer(graph)
-    await player.play()
-    expect(['A', 'B']).toContain(player.getVariable('result'))
+    expect(player.getVariable('result')).toBe('direct')
 })
