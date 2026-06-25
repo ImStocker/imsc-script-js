@@ -231,7 +231,7 @@ All event handlers receive a single event object with named properties.
 |`onSpeech`|`{ speech, node, nodeId }`|A speech node is active. `speech` contains character, text, values, and options array (each with index, condition, text, values).|
 |`onChoice`|`{ optionIndex, node, nodeId }`|User selected a choice (fired before moving to the next node).|
 |`onAction`|`{ type, subject, inputs, node, nodeId }` → `{ outputs?, next? }` (optional)|A trigger or function node is active. `type` is `'trigger'` or `'function'`. Return `outputs` for downstream bindings and optionally `next` to override the target node.|
-|`onChance`|`{ node, nodeId }` → `number`|A chance node needs a random value. Return a custom number in `[0, 1)` to override the default `Math.random()`.|
+|`onChance`|`{ options, node, nodeId }` → `number`|A chance node needs a random value. Return a custom number in `[0, 1)` to override the default `Math.random()`.|
 |`onDelay`|`{ duration, nodeId }`|A timer node is active. `duration` is in seconds. If not set, the player uses `setTimeout` internally.|
 |`onLoadScript`|`{ scriptId }` → `ImscScriptGraph`|Load a sub‑script by ID when a `callScript` node is activated.|
 |`onSubScriptEnter`|`{ frame }`|A sub‑script frame was pushed onto the stack (entered a `callScript` node).|

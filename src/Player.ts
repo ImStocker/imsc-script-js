@@ -134,6 +134,7 @@ export type ImscScriptPlayerEvents = {
     // Player entered chance node.
     // Return a random value (or a Promise that resolves to it) in range [0, 1).
     onChance?: (event: {
+        options: { nextNodeId: string | null, chance: number }[],
         node: ImscScriptGraphNodeChance,
         nodeId: string,
     }) => number | Promise<number>;
@@ -789,7 +790,19 @@ export class ImscScriptPlayer {
 
     private async _handleChanceNode(nodeId: string, node: ImscScriptGraphNodeChance, optionsInputs: AssetPropsPlainObject[]): Promise<string | null> {
 
+        const options = node.options ?? [];
+        const evalOptions: { nextNodeId: string | null, chance: number }[] = [];
+        for (let i = 0; i < options.length; i++) {
+            const optVals = optionsInputs[i] ?? {};
+            const chance = castAssetPropValueToFloat(optVals.chance) ?? 0
+            evalOptions.push({
+                nextNodeId: options[i].next,
+                chance
+            })
+        }
+
         let randomValue = await this._emitAsync('onChance', {
+            options: evalOptions,
             node,
             nodeId,
         });
@@ -801,15 +814,13 @@ export class ImscScriptPlayer {
             random: randomValue
         }
 
-        const options = node.options ?? [];
         if (options.length === 0) return node.next;
 
         let accChance = 0;
-        for (let i = 0; i < options.length; i++) {
-            const optVals = optionsInputs[i] ?? {};
-            const chance = accChance + (castAssetPropValueToFloat(optVals.chance) ?? 0);
+        for (let i = 0; i < evalOptions.length; i++) {
+            const chance = accChance + evalOptions[i].chance
             if (randomValue < chance) {
-                return options[i].next
+                return evalOptions[i].nextNodeId
             }
         }
 
