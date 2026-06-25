@@ -444,6 +444,7 @@ test('chance node picks option based on weighted probability', async () => {
         events: {
             onChance: ({ defaultOptionIndex }) => {
                 chosenOption = defaultOptionIndex
+                return defaultOptionIndex
             }
         }
     })
@@ -479,7 +480,9 @@ test('chance node onChance can override selection', async () => {
 
     const player = new ImscScriptPlayer(graph, {
         events: {
-            onChance: () => 1 // Always pick option B
+            onChance: () => {
+                return 1 // Always pick option B
+            }
         }
     })
     await player.play()
@@ -514,9 +517,42 @@ test('chance node with no explicit chances picks randomly', async () => {
 
     const player = new ImscScriptPlayer(graph, {
         events: {
-            onChance: () => 0 // Always pick first
+            onChance: () => {
+                return 0 // Always pick first
+            }
         }
     })
     await player.play()
     expect(player.getVariable('result')).toBe('A')
+})
+
+test('chance node auto-advances when no onChance handler', async () => {
+    const graph: ImscScriptGraph = {
+        start: 'chance',
+        nodes: {
+            chance: {
+                type: 'chance' as any,
+                next: null,
+                options: [
+                    { next: 'optionA', values: { chance: 0.7 } },
+                    { next: 'optionB', values: { chance: 0.3 } }
+                ]
+            },
+            optionA: {
+                type: 'setVar' as any,
+                next: 'end',
+                values: { variable: 'result', value: 'A' }
+            },
+            optionB: {
+                type: 'setVar' as any,
+                next: 'end',
+                values: { variable: 'result', value: 'B' }
+            },
+            end: { type: 'end' }
+        }
+    }
+
+    const player = new ImscScriptPlayer(graph)
+    await player.play()
+    expect(['A', 'B']).toContain(player.getVariable('result'))
 })

@@ -75,10 +75,10 @@ export type ImscScriptPlayerEvents = {
         node: ImscScriptGraphNodeSpeech,
         nodeId: string
     }) => void;
-    // Triggered when user made choice in speech node 
+    // Triggered when user made choice in speech or chance node
     onChoice?: (event: {
         optionIndex: number,
-        node: ImscScriptGraphNodeSpeech,
+        node: ImscScriptGraphNode,
         nodeId: string
     }) => void;
     // Player entered trigger node
@@ -132,14 +132,15 @@ export type ImscScriptPlayerEvents = {
         nodeId: string,
     }) => void | Promise<void>;
     // Player entered chance node. Provides the random value and the default selected option.
-    // Can return an option index to override the selection (e.g. in debug mode).
+    // Return the chosen option index (or a Promise that resolves to it).
+    // If the handler doesn't return a value, the player uses defaultOptionIndex.
     onChance?: (event: {
         randomValue: number,
         options: { chance: number | null, nextNodeId: string | null }[],
         node: ImscScriptGraphNodeChance,
         nodeId: string,
         defaultOptionIndex: number
-    }) => number | void | Promise<number | void>;
+    }) => number | Promise<number> | void;
 }
 
 export type ImscScriptPlayerCustomNodeEvent = {
@@ -654,7 +655,9 @@ export class ImscScriptPlayer {
                 case 'chance': {
                     const next = await this._handleChanceNode(nodeId, graphNode as ImscScriptGraphNodeChance, evaluatedNode.optionsInputs);
                     if (playEpoch !== this._playEpoch) return;
-                    this.goto(next);
+                    if (next !== undefined) {
+                        this.goto(next);
+                    }
                     break;
                 }
 
@@ -790,7 +793,7 @@ export class ImscScriptPlayer {
         return chosenOption?.next ?? null;
     }
 
-    private async _handleChanceNode(nodeId: string, node: ImscScriptGraphNodeChance, optionsInputs: AssetPropsPlainObject[]): Promise<string | null> {
+    private async _handleChanceNode(nodeId: string, node: ImscScriptGraphNodeChance, optionsInputs: AssetPropsPlainObject[]): Promise<string | null | undefined> {
         const options = node.options ?? [];
         if (options.length === 0) return node.next;
 
@@ -801,73 +804,74 @@ export class ImscScriptPlayer {
             chances.push(chance !== null && chance !== undefined ? chance : null);
         }
 
-        const explicitSum = chances.reduce((sum, c) => sum + (c ?? 0), 0);
-        const explicitCount = chances.filter(c => c !== null).length;
+        let explicitSum = 0;
+        let explicitCount = 0;
+        for (const c of chances) {
+            if (c !== null) {
+                explicitSum += c;
+                explicitCount += 1;
+            }
+        }
         const elseCount = options.length - explicitCount;
 
+        let randomValue: number;
+        let defaultOptionIndex = 0;
+
         if (explicitCount === 0) {
-            const randomValue = Math.random();
-            const defaultOptionIndex = Math.min(Math.floor(randomValue * options.length), options.length - 1);
-            const overrideIndex = await this._emitAsync('onChance', {
-                randomValue,
-                options: chances.map((c, i) => ({ chance: c, nextNodeId: options[i]!.next ?? null })),
-                node,
-                nodeId,
-                defaultOptionIndex
-            });
-            const finalIndex = typeof overrideIndex === 'number' ? overrideIndex : defaultOptionIndex;
-            return options[finalIndex]?.next ?? null;
+            randomValue = Math.random();
+            defaultOptionIndex = Math.min(Math.floor(randomValue * options.length), options.length - 1);
         }
+        else {
+            const clamped = chances.map(c => c !== null ? c : 0);
+            let sum = 0;
+            for (const v of clamped) sum += v;
+            if (sum <= 0) {
+                randomValue = Math.random();
+                defaultOptionIndex = Math.min(Math.floor(randomValue * options.length), options.length - 1);
+            }
+            else {
+                if (elseCount > 0) {
+                    const remaining: number = 1 - explicitSum;
+                    for (let i = 0; i < chances.length; i++) {
+                        if (chances[i] === null) {
+                            chances[i] = Math.max(0, remaining / elseCount);
+                        }
+                    }
+                }
 
-        const clamped = chances.map(c => c !== null ? c : 0);
-        const sum = clamped.reduce((a, b) => a + b, 0);
-        if (sum <= 0) {
-            const randomValue = Math.random();
-            const defaultOptionIndex = Math.min(Math.floor(randomValue * options.length), options.length - 1);
-            const overrideIndex = await this._emitAsync('onChance', {
-                randomValue,
-                options: chances.map((c, i) => ({ chance: c, nextNodeId: options[i]!.next ?? null })),
-                node,
-                nodeId,
-                defaultOptionIndex
-            });
-            const finalIndex = typeof overrideIndex === 'number' ? overrideIndex : defaultOptionIndex;
-            return options[finalIndex]?.next ?? null;
-        }
+                const finalChances = chances.map(c => c ?? 0);
+                let total = 0;
+                for (const v of finalChances) total += v;
+                randomValue = Math.random() * total;
 
-        if (elseCount > 0) {
-            const remaining = 1 - explicitSum;
-            for (let i = 0; i < chances.length; i++) {
-                if (chances[i] === null) {
-                    chances[i] = Math.max(0, remaining / elseCount);
+                let cumulative = 0;
+                for (let i = 0; i < finalChances.length; i++) {
+                    cumulative += finalChances[i]!;
+                    if (randomValue < cumulative) {
+                        defaultOptionIndex = i;
+                        break;
+                    }
                 }
             }
         }
 
-        const finalChances = chances.map(c => c ?? 0);
-        const total = finalChances.reduce((a, b) => a + b, 0);
-        const randomValue = Math.random() * total;
+        const optionsData = chances.map((c, i) => ({ chance: c, nextNodeId: options[i]!.next ?? null }));
 
-        let cumulative = 0;
-        let defaultOptionIndex = 0;
-        for (let i = 0; i < finalChances.length; i++) {
-            cumulative += finalChances[i]!;
-            if (randomValue < cumulative) {
-                defaultOptionIndex = i;
-                break;
-            }
-        }
-
-        const overrideIndex = await this._emitAsync('onChance', {
+        const chosenIndex = await this._emitAsync('onChance', {
             randomValue,
-            options: chances.map((c, i) => ({ chance: c, nextNodeId: options[i]!.next ?? null })),
+            options: optionsData,
             node,
             nodeId,
             defaultOptionIndex
+        }) ?? defaultOptionIndex;
+
+        this._emit('onChoice', {
+            optionIndex: chosenIndex,
+            node,
+            nodeId
         });
 
-        const finalIndex = typeof overrideIndex === 'number' ? overrideIndex : defaultOptionIndex;
-        return options[finalIndex]?.next ?? null;
+        return options[chosenIndex]?.next ?? null;
     }
 
     private _handleSetVarNode(nodeId: string, node: ImscScriptGraphNodeSetVar, inputs: AssetPropsPlainObject): void {
