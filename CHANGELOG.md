@@ -1,3 +1,9 @@
+# v2.0.3
+
+New features:
+- Handle new types of nodes: 'chance', 'timer', 'jump'
+
+
 # v2.0.2
 
 Fixes:
