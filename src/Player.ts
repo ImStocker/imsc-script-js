@@ -822,6 +822,7 @@ export class ImscScriptPlayer {
             if (randomValue < chance) {
                 return evalOptions[i].nextNodeId
             }
+            accChance = chance;
         }
 
         return node.next;
