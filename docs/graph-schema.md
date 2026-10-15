@@ -99,11 +99,12 @@ Entry point. Must be the node referenced by the graph's `start`.
 
 #### `end`
 
-Terminates execution of the current graph.
+Terminates execution of the current graph. If the graph is a sub-script (entered via `callScript`), the frame is popped and execution continues in the parent graph. When `subject` is set, it names the exit, and the parent `callScript` node routes to the matching option (`options[].values.name`); otherwise the parent's `callScript.next` is used.
 
 ```typescript
 {
     type: 'end',
+    subject?: string,        // Optional exit name (matched against callScript options)
     index?: number,
     pos?: { x: number, y: number }
 }
@@ -197,12 +198,19 @@ Conditional branch with two outgoing edges.
 
 Calls a sub-graph (sub-script). The sub-graph is loaded via the `onLoadScript` event. Passes `in`/`in-out` variables from `values`, and copies `out`/`in-out` variables back on return.
 
+When the sub-graph ends, the next node is chosen by the `end` node reached:
+- If that `end` node has a `subject` (exit name), the option whose `values.name` matches is used (`options[].values.name` → `next`).
+- Otherwise (unnamed exit, or no matching option) the node's `next` is used.
+
 ```typescript
 {
     type: 'callScript',
     next: string | null,
     subject: string | { AssetId: string, Title: string, ... },  // Script identifier
     values?: { [prop: string]: Val },
+    options?: [                       // Named exits (optional)
+        { values: { name: string }, next: string | null }
+    ],
     index?: number,
     pos?: { x: number, y: number }
 }

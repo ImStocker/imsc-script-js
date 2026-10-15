@@ -92,7 +92,8 @@ export type ImscScriptGraphNodeUnaryOp = ImscScriptGraphNodeBase & {
 }
 
 export type ImscScriptGraphNodeEnd = ImscScriptGraphNodeBase & {
-    type: 'end'
+    type: 'end',
+    subject?: string,
 }
 
 export type ImscScriptGraphNodeStart = ImscScriptGraphNodeBase & {
@@ -147,6 +148,7 @@ export type ImscScriptGraphNodeCallScript = ImscScriptGraphNodeBase & {
     next: string | null,
     subject: AssetPropValueAsset | string,
     values?: ImscScriptGraphVals,
+    options?: ImscScriptGraphNodeOption[],
 }
 
 export type ImscScriptGraphNodeChance = ImscScriptGraphNodeBase & {

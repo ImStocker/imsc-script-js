@@ -527,3 +527,115 @@ test('chance node with empty options uses next directly', async () => {
     await player.play()
     expect(player.getVariable('result')).toBe('direct')
 })
+
+test('callScript routes to the branch of the reached named exit', async () => {
+    const subGraph: ImscScriptGraph = {
+        start: 'start',
+        variables: {
+            own: {
+                path: { name: 'path', type: { Type: 'boolean' }, kind: 'in' }
+            }
+        },
+        nodes: {
+            start: { type: 'start', next: 'br' },
+            getPath: { type: 'getVar', values: { variable: 'path' } },
+            br: {
+                type: 'branch',
+                values: { condition: { get: 'getPath', param: 'result' } },
+                options: [
+                    { next: 'endWin' },
+                    { next: 'endLose' }
+                ]
+            },
+            endWin: { type: 'end', subject: 'win' },
+            endLose: { type: 'end', subject: 'lose' }
+        }
+    }
+
+    const makeGraph = (): ImscScriptGraph => ({
+        start: 'call',
+        nodes: {
+            // NOTE: next is null on purpose - correctness relies on the named exit
+            call: {
+                type: 'callScript',
+                subject: 'branchy',
+                values: { path: true },
+                next: null,
+                options: [
+                    { values: { name: 'win' }, next: 'onWin' },
+                    { values: { name: 'lose' }, next: 'onLose' }
+                ]
+            },
+            onWin: {
+                type: 'setVar',
+                values: { variable: 'route', value: 'win-branch' },
+                next: 'end'
+            },
+            onLose: {
+                type: 'setVar',
+                values: { variable: 'route', value: 'lose-branch' },
+                next: 'end'
+            },
+            end: { type: 'end' }
+        }
+    })
+
+    const player = new ImscScriptPlayer(makeGraph(), {
+        events: {
+            onLoadScript: async ({ scriptId }) => {
+                if (scriptId === 'branchy') return subGraph
+                else throw new Error('Not found')
+            }
+        }
+    })
+
+    await player.play()
+    expect(player.getVariable('route')).toBe('win-branch')
+})
+
+test('callScript falls back to next for an unnamed exit', async () => {
+    const subGraph: ImscScriptGraph = {
+        start: 'start',
+        nodes: {
+            start: { type: 'start', next: 'end' },
+            end: { type: 'end' }
+        }
+    }
+
+    const graph: ImscScriptGraph = {
+        start: 'call',
+        nodes: {
+            call: {
+                type: 'callScript',
+                subject: 'plain',
+                next: 'fallback',
+                options: [
+                    { values: { name: 'win' }, next: 'onWin' }
+                ]
+            },
+            onWin: {
+                type: 'setVar',
+                values: { variable: 'route', value: 'win-branch' },
+                next: 'end'
+            },
+            fallback: {
+                type: 'setVar',
+                values: { variable: 'route', value: 'fallback' },
+                next: 'end'
+            },
+            end: { type: 'end' }
+        }
+    }
+
+    const player = new ImscScriptPlayer(graph, {
+        events: {
+            onLoadScript: async ({ scriptId }) => {
+                if (scriptId === 'plain') return subGraph
+                else throw new Error('Not found')
+            }
+        }
+    })
+
+    await player.play()
+    expect(player.getVariable('route')).toBe('fallback')
+})
