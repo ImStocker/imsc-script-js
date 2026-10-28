@@ -359,36 +359,59 @@ export class ImscScriptPlayer {
     this._enterNode(nodeId, ++this._playEpoch);  // Don't await
   }
 
-  private _endFrame(exitName?: string | null) {
-    if (this._frames.length > 1) {
-      const left_frame = this._frames.shift()!;
-      const node = this.currentFrame.currentNode ?
-        (this.currentFrame.graph.nodes[this.currentFrame.currentNode.id] as ImscScriptGraphNodeCallScript) :
-        null;
+  private _endFrame(exitName?: string | null, endInputs?: AssetPropsPlainObject) {
+    const isSubscript = this._frames.length > 1;
+    const left_frame = this._frames[0];
 
-      const next = node ? this._resolveCallScriptNext(node, exitName) : null;
-      if (!node || !next) {
+    // Write End-node inputs into the variables of the frame being finished.
+    // This is done before shifting frames so that onVariableChange is emitted
+    // and the values are available for collecting the frame outputs.
+    // A variable is updated only when the End node actually provides a value
+    // for it (connected pin or manual value); otherwise it keeps its value.
+    if (endInputs) {
+      for (const [varname, value] of Object.entries(endInputs)) {
+        const vardef = left_frame?.graph?.variables?.own?.[varname];
+        if (vardef && (vardef.kind === 'out' || vardef.kind === 'in-out')) {
+          this.setVariable(varname, value, 0);
+        }
+      }
+    }
+
+    if (isSubscript) {
+      const outputs: AssetPropsPlainObject = {};
+      for (const [varname, vardef] of Object.entries(left_frame?.graph?.variables?.own ?? {})) {
+        if (vardef.kind === 'out' || vardef.kind === 'in-out') {
+          outputs[varname] = left_frame?.variables?.[varname] ?? null;
+        }
+      }
+
+      // The parent frame is still frames[1] at this point; its currentNode is
+      // the callScript node that started this subscript.
+      const parentNode = this._frames[1];
+      const callScriptNode = parentNode?.currentNode
+        ? (parentNode.graph.nodes[parentNode.currentNode.id] as ImscScriptGraphNodeCallScript)
+        : null;
+
+      this._frames.shift();
+
+      const next = callScriptNode ? this._resolveCallScriptNext(callScriptNode, exitName) : null;
+      if (!callScriptNode || !next) {
         this.end();
         return;
       }
 
       if (this.currentFrame.currentNode) {
-        const outputs: AssetPropsPlainObject = {}
-        for (const [varname, vardef] of Object.entries(left_frame.graph?.variables?.own ?? {})) {
-          if (vardef.kind === 'out' || vardef.kind === 'in-out') {
-            outputs[varname] = left_frame.variables[varname] ?? null
-          }
-        }
-        this.currentFrame.nodeOutputs[this.currentFrame.currentNode.id] = outputs
+        this.currentFrame.nodeOutputs[this.currentFrame.currentNode.id] = outputs;
       }
       this._emitStateChange();
       this._emit('onSubScriptExit', {
         frame: left_frame
-      })
+      });
 
-      this.goto(next)
+      this.goto(next);
     }
     else {
+      // Root script: keep the End-node values in the root frame variables.
       this.end();
     }
   }
@@ -643,7 +666,7 @@ export class ImscScriptPlayer {
         }
 
         case 'end':
-          this._endFrame(graphNode.subject ?? null);
+          this._endFrame(graphNode.subject ?? null, evaluatedNode.inputs);
           break;
 
         case 'callScript': {
@@ -952,6 +975,16 @@ export class ImscScriptPlayer {
       case 'constFloat':
       case 'constBoolean':
         return { result: node.values.value };
+
+      case 'start': {
+        const vars: AssetPropsPlainObject = {}
+        for (const [varname, vardef] of Object.entries(this.currentFrame.graph.variables?.own ?? {})) {
+          if (vardef.kind === 'in' || vardef.kind === 'in-out') {
+            vars[varname] = this.getVariable(varname)
+          }
+        }
+        return vars
+      }
 
       case 'getVar': {
         const varName = await this._evaluateValue((node as ImscScriptGraphNodeGetVar).values.variable);

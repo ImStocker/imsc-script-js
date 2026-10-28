@@ -94,11 +94,13 @@ export type ImscScriptGraphNodeUnaryOp = ImscScriptGraphNodeBase & {
 export type ImscScriptGraphNodeEnd = ImscScriptGraphNodeBase & {
     type: 'end',
     subject?: string,
+    values?: ImscScriptGraphVals,
 }
 
 export type ImscScriptGraphNodeStart = ImscScriptGraphNodeBase & {
     type: 'start',
     next: string | null,
+    values?: ImscScriptGraphVals,
 }
 
 export type ImscScriptGraphNodeGetVar = ImscScriptGraphNodeBase & {

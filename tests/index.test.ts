@@ -639,3 +639,67 @@ test('callScript falls back to next for an unnamed exit', async () => {
     await player.play()
     expect(player.getVariable('route')).toBe('fallback')
 })
+
+test('root end node updates an out variable', async () => {
+    const graph: ImscScriptGraph = {
+        start: 'end',
+        variables: {
+            own: {
+                result: { name: 'result', type: { Type: 'integer' }, kind: 'out', default: 0 }
+            }
+        },
+        nodes: {
+            end: { type: 'end', values: { result: 42 } }
+        }
+    }
+
+    const player = new ImscScriptPlayer(graph)
+    await player.play()
+    expect(player.getVariable('result')).toBe(42)
+})
+
+test('callScript leaves an unassigned end variable unchanged', async () => {
+    const subGraph: ImscScriptGraph = {
+        start: 'start',
+        variables: {
+            own: {
+                a: { name: 'a', type: { Type: 'integer' }, kind: 'in' },
+                b: { name: 'b', type: { Type: 'integer' }, kind: 'out', default: null }
+            }
+        },
+        nodes: {
+            start: { type: 'start', next: 'end' },
+            end: { type: 'end' }
+        }
+    }
+
+    const graph: ImscScriptGraph = {
+        start: 'callCalc',
+        nodes: {
+            callCalc: {
+                type: 'callScript',
+                subject: 'adder',
+                values: { a: 5 },
+                next: 'readResult'
+            },
+            readResult: {
+                type: 'setVar',
+                values: { variable: 'result', value: { get: 'callCalc', param: 'b' } },
+                next: 'end'
+            },
+            end: { type: 'end' }
+        }
+    }
+
+    const player = new ImscScriptPlayer(graph, {
+        events: {
+            onLoadScript: async ({ scriptId }) => {
+                if (scriptId === 'adder') return subGraph
+                else throw new Error('Not found')
+            }
+        }
+    })
+
+    await player.play()
+    expect(player.getVariable('result')).toBeNull()
+})
