@@ -1,3 +1,6 @@
+import type { AssetPropsSelectionOrder } from './PropsSelection';
+import type { AssetPropWhere } from './PropsWhere';
+
 export enum AssetPropType {
   NULL = 'null',
   BOOLEAN = 'boolean',
@@ -5,6 +8,7 @@ export enum AssetPropType {
   INTEGER = 'integer',
   FLOAT = 'float',
   ARRAY = 'array',
+  STRUCT = 'struct',
   TEXT = 'text',
   FILE = 'file',
   BLOB = 'blob',
@@ -17,6 +21,10 @@ export enum AssetPropType {
   WORKSPACE = 'workspace',
   TIMESTAMP = 'timestamp',
   TYPE = 'type',
+}
+
+export function isStructureMarker(value: unknown): value is [''] {
+  return Array.isArray(value) && value.length === 1 && value[0] === '';
 }
 
 export type AssetPropValueTextOp = {
@@ -37,8 +45,13 @@ export type AssetPropValueFile = {
   Store: string;
 };
 
+export type AssetMention = {
+  accountId: string;
+  id: string;
+  name: string;
+};
 export type AssetPropValueBlob = {
-  Blob: string;
+  Blob: any;
   Type: string;
   Key?: string;
 };
@@ -88,8 +101,8 @@ export type AssetPropValueSelection = {
   Select: any;
   Group: any;
   Str: string;
-  Where: any;
-  Order?: any[];
+  Where: AssetPropWhere;
+  Order?: AssetPropsSelectionOrder[];
   Offset?: number;
   Count?: number;
 };
@@ -106,6 +119,7 @@ export type AssetPropValue =
   | number
   | boolean
   | number[]
+  | ['']
   | AssetPropValueText
   | AssetPropValueFile
   | AssetPropValueBlob
@@ -127,6 +141,7 @@ export type AssetPropValueNested =
 export type AssetProps = Record<string, AssetPropValue>;
 export type AssetPropsNested = Record<string, AssetPropValueNested>;
 export type AssetPropBlocks = Record<string, AssetProps>;
+export type AssetPropBlocksChange = Record<string, AssetProps | AssetProps[]>;
 
 export function castDateToAssetPropValueTimestamp(
   date: Date,
@@ -217,6 +232,9 @@ export function castAssetPropValueToString(a: AssetPropsPlainObjectValue): strin
     case AssetPropType.ACCOUNT:
       return `[${(a as AssetPropValueAccount).Name ?? ''}](#account:${(a as AssetPropValueAccount).AccountId
         })`;
+    case AssetPropType.STRUCT:
+      // Structure marker [''] — a container, has no scalar representation
+      return '';
     case AssetPropType.ARRAY:
       // NOTE: При переводе в строку одиночных значений мы не можем получить значения массива, поэтому выводим только кол-во
       return `array[${(a as number[]).length}]`;
@@ -435,6 +453,8 @@ export function getAssetPropType(v: AssetPropsPlainObjectValue): AssetPropType |
   else if (typeof v === 'boolean') return AssetPropType.BOOLEAN;
   else if (typeof v === 'number') {
     return Number.isInteger(v) ? AssetPropType.INTEGER : AssetPropType.FLOAT;
+  } else if (isStructureMarker(v)) {
+    return AssetPropType.STRUCT;
   } else if (Array.isArray(v)) return AssetPropType.ARRAY;
   else if (typeof v === 'object') {
     if (
@@ -570,7 +590,7 @@ export function compareAssetPropValues(
   if (an === null) return -1;
   if (bn === null) return 1;
   const a_type = getAssetPropType(an);
-  const b_type = getAssetPropType(an);
+  const b_type = getAssetPropType(bn);
   if (a_type === b_type) {
     switch (a_type) {
       case undefined:
@@ -623,6 +643,9 @@ export function compareAssetPropValues(
           return scomp;
         }
       }
+      case AssetPropType.STRUCT:
+        // Markers are identical by shape
+        return 0;
       case AssetPropType.ARRAY: {
         const ac = a as number[];
         const bc = b as number[];
@@ -710,7 +733,7 @@ export function compareAssetPropValues(
     }
   } else {
     const a_str = castAssetPropValueToString(an);
-    const b_str = castAssetPropValueToString(an);
+    const b_str = castAssetPropValueToString(bn);
     const comp = a_str.localeCompare(b_str);
     if (comp === 0 && exact) {
       return -1;
