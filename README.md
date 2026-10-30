@@ -17,7 +17,7 @@ Works with any web game engine (Phaser, PixiJS, or vanilla JS) and provides full
 - 🔌 **Framework agnostic** – works with Phaser, PixiJS, or any rendering engine
 - 📝 **Expression evaluation** – math, comparison, and logical operators
 - 🧩 **Async support** – triggers can be asynchronous
-- 📜 **Sub‑scripts** – `callScript` nodes run nested graphs with isolated variables and `in`/`out` data flow
+- 📜 **Sub‑scripts** – `callScript` nodes run nested graphs with isolated variables, `in`/`out`/`in-out` data flow, and multiple named exits
 - 🧰 **Custom nodes** – register your own exec (flow) or data (expression) node types via `registerCustomNode`
 - ⏸️ **Pause/Resume** – pause execution during triggers or user input
 
@@ -171,6 +171,87 @@ player.pause();
 await playAnimation();
 player.resume();
 ```
+
+## **Sub-scripts (nested graphs)**
+
+A `callScript` node loads and runs another graph (resolved via the `onLoadScript` event) as a nested frame. Data is passed in and out using variable kinds (`in`, `out`, `in-out` — see [JSON schema](./docs/graph-schema.md)):
+
+- `in` / `in-out` variables are written from the `callScript` node's `values` on enter.
+- `out` / `in-out` variables are copied back to the caller on exit and are readable via `{ "get": "callScriptNodeId", "param": "variableName" }` bindings.
+- Inside the sub-script, the `start` node exposes all `in`/`in-out` variables as outputs (usable in bindings), and the `end` node can assign `out`/`in-out` variables via its `values`.
+
+A sub-graph can have **multiple exits**: give each `end` node an exit name via `subject`, and map them to branches on the parent `callScript` node with `options`.
+
+Parent graph calling the `merchant` script (resolved via the `onLoadScript` event):
+
+```json
+{
+  "start": "call",
+  "nodes": {
+    "call": {
+      "type": "callScript",
+      "subject": "merchant",
+      "values": { "gold": 25 },
+      "options": [
+        { "values": { "name": "deal" }, "next": "onDeal" },
+        { "values": { "name": "refuse" }, "next": "onRefuse" }
+      ]
+    },
+    "onDeal": { "type": "trigger", "subject": "trade", "next": "end" },
+    "onRefuse": { "type": "speech", "values": { "text": "Pity." }, "next": "end" },
+    "end": { "type": "end" }
+  }
+}
+```
+
+The `merchant` sub-script itself — accepts `gold` (`in`), returns `dealt` (`out`), and exits via a named `end` node depending on a branch:
+
+```json
+{
+  "start": "entry",
+  "variables": {
+    "own": {
+      "gold": { "name": "gold", "type": { "Type": "integer" }, "kind": "in", "default": 0 },
+      "dealt": { "name": "dealt", "type": { "Type": "boolean" }, "kind": "out", "default": false }
+    }
+  },
+  "nodes": {
+    "entry": { "type": "start", "next": "canAfford" },
+    "canAfford": {
+      "type": "branch",
+      "values": { "condition": { "get": "opMore", "param": "result" } },
+      "options": [
+        { "next": "endDeal" },
+        { "next": "endRefuse" }
+      ]
+    },
+    "opMore": {
+      "type": "opMore",
+      "values": {
+        "arg1": { "get": "start", "param": "gold" },
+        "arg2": 10
+      }
+    },
+    "endDeal": { "type": "end", "subject": "deal", "values": { "dealt": true } },
+    "endRefuse": { "type": "end", "subject": "refuse" }
+  }
+}
+```
+
+Here the `start` node exposes the incoming `gold` variable to the `opMore` comparison, and the `endDeal` node both names the exit (`deal`) and assigns the `dealt` output — which the caller can read via `{ "get": "call", "param": "dealt" }`. In the player, `onLoadScript` resolves the script identifier:
+
+```javascript
+const player = new ImscScriptPlayer(parentGraph, {
+  events: {
+    onLoadScript: async ({ scriptId }) => {
+      if (scriptId === 'merchant') return merchantGraph;
+    }
+  }
+});
+```
+
+If the sub-script reaches an `end` node whose `subject` matches an option's `values.name`, that option's `next` is used. Unnamed exits (or exits without a matching option) fall back to the `callScript` node's `next`.
+
 
 ## **API Reference**
 

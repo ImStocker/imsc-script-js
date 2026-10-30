@@ -1,3 +1,18 @@
+# v2.2.0
+
+New features:
+- **Multiple exits in `callScript`** – `end` node now accepts an optional `subject` (exit name); the parent `callScript` node routes to the matching option (`options[].values.name` → `next`). Unnamed exits or exits without a matching option fall back to `callScript.next`
+- **`in`/`out`/`in-out` params on `start` and `end` nodes** –
+  - `end` node now accepts a `values` field; evaluated values are written into the finishing frame's `out`/`in-out` variables before the frame is popped (for the root graph they are kept in the root frame's variables). Variables not assigned by the `end` node keep their current value
+  - `start` node can now be referenced by bindings (`{ get: "startNodeId", param: "varName" }`); it exposes all `in`/`in-out` variables of the current frame as outputs
+
+Changes:
+- `AssetProps*` type declarations synced with IMS Creators (`ims-app-base`): new `AssetPropType.STRUCT` with `isStructureMarker()` helper, structure marker `['']` in the `AssetPropValue` union, `AssetPropValueBlob.Blob` is now `any`, typed `Where`/`Order` in `AssetPropValueSelection` (new `PropsWhere.ts` / `PropsSelection.ts` modules), new `AssetMention` and `AssetPropBlocksChange` types
+
+Fixes:
+- Fixed `compareAssetPropValues` for values of different types: the second operand's type and string form were computed from the first operand, making cross-type comparisons incorrect (they now compare via string forms, and `exact` mode treats equal strings of different types as unequal)
+
+
 # v2.1.1
 
 Fixes:

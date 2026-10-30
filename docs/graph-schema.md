@@ -88,23 +88,31 @@ A value can be any **plain value** (literal), or a **binding** that references a
 
 Entry point. Must be the node referenced by the graph's `start`.
 
+Can also be referenced by bindings (`{ get: "startNodeId", "param": "variableName" }`): it exposes the current frame's `in`/`in-out` variables as outputs, one per variable name.
+
 ```typescript
 {
     type: 'start',
     next: string | null,     // Next node ID
+    values?: { [prop: string]: Val },
     index?: number,
     pos?: { x: number, y: number }
 }
 ```
 
+Outputs: `{ [varName]: value }` for each `in`/`in-out` variable of the current graph.
+
 #### `end`
 
 Terminates execution of the current graph. If the graph is a sub-script (entered via `callScript`), the frame is popped and execution continues in the parent graph. When `subject` is set, it names the exit, and the parent `callScript` node routes to the matching option (`options[].values.name`); otherwise the parent's `callScript.next` is used.
+
+Values provided in `values` are evaluated and written into the frame's `out`/`in-out` variables before the frame is popped (for the root graph they are kept in the root frame's variables). Variables not assigned by the `end` node keep their current value.
 
 ```typescript
 {
     type: 'end',
     subject?: string,        // Optional exit name (matched against callScript options)
+    values?: { [prop: string]: Val },  // Values for out/in-out variables
     index?: number,
     pos?: { x: number, y: number }
 }
